@@ -1,0 +1,24 @@
+
+  VITE v8.2.1  ready in 422 ms
+
+  ➜  Local:   http://127.0.0.1:5173/
+  ➜  press h + enter to show help
+9:10:43 am [vite] (client) hmr update /src/main.tsx
+9:11:34 am [vite] (client) hmr update /src/main.tsx
+9:11:35 am [vite] (client) hmr invalidate /src/main.tsx Could not Fast Refresh ("true" export is incompatible). Learn more at https://github.com/vitejs/vite-plugin-react/tree/main/packages/plugin-react#consistent-components-exports
+9:11:35 am [vite] (client) page reload src/main.tsx
+9:14:22 am [vite] (client) hmr update /src/styles.css
+9:14:56 am [vite] (client) hmr update /src/styles.css
+9:14:57 am [vite] (client) hmr update /src/styles.css
+9:15:13 am [vite] vite.config.js changed, restarting server...
+9:15:13 am [vite] server restarted.
+9:26:44 am [vite] (client) hmr update /src/main.tsx
+9:26:44 am [vite] (client) hmr invalidate /src/main.tsx Could not Fast Refresh ("true" export is incompatible). Learn more at https://github.com/vitejs/vite-plugin-react/tree/main/packages/plugin-react#consistent-components-exports
+9:26:44 am [vite] (client) page reload src/main.tsx
+10:25:31 am [vite] (client) hmr update /src/styles.css
+10:25:37 am [vite] (client) hmr update /src/styles.css
+10:26:17 am [vite] (client) hmr update /src/styles.css
+10:26:21 am [vite] (client) hmr update /src/main.tsx
+10:35:38 am [vite] (client) hmr update /src/App.tsx
+10:35:46 am [vite] (client) hmr update /src/App.tsx
+10:35:55 am [vite] (client) hmr update /src/App.tsx

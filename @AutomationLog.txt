@@ -1,0 +1,5 @@
+2026-08-16 03:35:12.056 uia_engine.py[495] execute_ui_action -> Can not move cursor. WindowControl's BoundingRectangle is (0,0,0,0)[0x0]. SearchProperties: {ControlType: WindowControl}
+2026-08-16 03:36:28.452 uia_engine.py[495] execute_ui_action -> Can not move cursor. WindowControl's BoundingRectangle is (0,0,0,0)[0x0]. SearchProperties: {ControlType: WindowControl}
+2026-08-16 04:00:07.954 uia_engine.py[495] execute_ui_action -> Can not move cursor. WindowControl's BoundingRectangle is (0,0,0,0)[0x0]. SearchProperties: {ControlType: WindowControl}
+2026-08-16 04:01:56.977 uia_engine.py[495] execute_ui_action -> Can not move cursor. WindowControl's BoundingRectangle is (0,0,0,0)[0x0]. SearchProperties: {ControlType: WindowControl}
+2026-08-16 04:03:19.681 uia_engine.py[502] execute_ui_action -> Can not move cursor. WindowControl's BoundingRectangle is (0,0,0,0)[0x0]. SearchProperties: {ControlType: WindowControl}
