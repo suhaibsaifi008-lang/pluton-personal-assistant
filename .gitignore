@@ -1,0 +1,43 @@
+# Environment / secrets
+.env
+backend/.env
+.env.*
+!.env.example
+
+# Python
+.venv/
+venv/
+env/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.coverage
+htmlcov/
+
+# Databases / runtime data
+*.db
+*.db-wal
+*.db-shm
+data/screenshots/
+
+# Logs
+*.log
+@AutomationLog.txt
+
+# Node / frontend
+node_modules/
+frontend/node_modules/
+frontend/dist/
+*.tsbuildinfo
+
+# Temporary / debugging
+scratch/
+
+# IDE
+.vscode/
+.idea/
+
+# Generated screenshots / test artifacts
+*.png
+*.jpg
+*.jpeg

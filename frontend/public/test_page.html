@@ -1,0 +1,147 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Pluton Web Interaction Test Page</title>
+  <style>
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+      max-width: 600px;
+      margin: 40px auto;
+      padding: 24px;
+      background: #0f172a;
+      color: #f8fafc;
+      border-radius: 12px;
+      box-shadow: 0 4px 20px rgba(0,0,0,0.5);
+    }
+    h1 {
+      font-size: 24px;
+      margin-bottom: 20px;
+      color: #38bdf8;
+      border-bottom: 1px solid #334155;
+      padding-bottom: 12px;
+    }
+    .form-group {
+      margin-bottom: 18px;
+    }
+    label {
+      display: block;
+      margin-bottom: 6px;
+      font-weight: 500;
+      color: #94a3b8;
+    }
+    input[type="text"], select {
+      width: 100%;
+      padding: 10px 12px;
+      background: #1e293b;
+      border: 1px solid #475569;
+      border-radius: 6px;
+      color: #f8fafc;
+      font-size: 15px;
+      box-sizing: border-box;
+    }
+    input[type="text"]:focus, select:focus {
+      outline: none;
+      border-color: #38bdf8;
+    }
+    .checkbox-group {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+    .checkbox-group input {
+      width: 18px;
+      height: 18px;
+      accent-color: #38bdf8;
+    }
+    button {
+      background: #0284c7;
+      color: white;
+      border: none;
+      padding: 10px 20px;
+      font-size: 15px;
+      font-weight: 600;
+      border-radius: 6px;
+      cursor: pointer;
+      transition: background 0.2s;
+    }
+    button:hover {
+      background: #0369a1;
+    }
+    .result-box {
+      margin-top: 24px;
+      padding: 16px;
+      background: #1e293b;
+      border: 1px solid #334155;
+      border-radius: 8px;
+    }
+    .result-box h3 {
+      margin-top: 0;
+      font-size: 16px;
+      color: #38bdf8;
+    }
+    #result-area {
+      font-family: monospace;
+      font-size: 14px;
+      color: #a5f3fc;
+      white-space: pre-wrap;
+    }
+  </style>
+</head>
+<body>
+  <h1>Pluton Web Interaction Test Page</h1>
+
+  <div class="form-group">
+    <label for="test-input">Enter text</label>
+    <input type="text" id="test-input" placeholder="Type here..." autocomplete="off">
+  </div>
+
+  <div class="form-group checkbox-group">
+    <input type="checkbox" id="test-checkbox">
+    <label for="test-checkbox" style="margin-bottom: 0;">Enable feature</label>
+  </div>
+
+  <div class="form-group">
+    <label for="test-select">Select option</label>
+    <select id="test-select">
+      <option value="Option A">Option A</option>
+      <option value="Option B">Option B</option>
+      <option value="Option C">Option C</option>
+    </select>
+  </div>
+
+  <div class="form-group">
+    <button id="test-button">Change Page</button>
+  </div>
+
+  <div class="result-box">
+    <h3>Live Page Result Area</h3>
+    <div id="result-area">Initial state: Ready for interaction.</div>
+  </div>
+
+  <script>
+    const inputEl = document.getElementById('test-input');
+    const checkEl = document.getElementById('test-checkbox');
+    const selectEl = document.getElementById('test-select');
+    const btnEl = document.getElementById('test-button');
+    const resultEl = document.getElementById('result-area');
+
+    function updateState(eventSource) {
+      resultEl.textContent = `Event: ${eventSource}\n` +
+        `Text: "${inputEl.value}"\n` +
+        `Checkbox: ${checkEl.checked ? 'CHECKED' : 'UNCHECKED'}\n` +
+        `Selected: "${selectEl.value}"\n` +
+        `Timestamp: ${new Date().toLocaleTimeString()}`;
+    }
+
+    inputEl.addEventListener('input', () => updateState('Text Input'));
+    checkEl.addEventListener('change', () => updateState('Checkbox Toggle'));
+    selectEl.addEventListener('change', () => updateState('Dropdown Select'));
+    btnEl.addEventListener('click', () => {
+      btnEl.textContent = 'Page Changed!';
+      updateState('Button Click (Page Changed)');
+    });
+  </script>
+</body>
+</html>

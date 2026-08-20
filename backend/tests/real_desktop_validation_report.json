@@ -1,0 +1,277 @@
+[
+  {
+    "prompt": "Open a new tab in Brave",
+    "intent": "BROWSER_TAB_CREATE",
+    "target": "",
+    "capability": "BROWSER_TAB_CREATE",
+    "execution_tier": "Tier 3: Structured Desktop Layer",
+    "vision_invoked": false,
+    "vision_tools": [],
+    "verified": false,
+    "verification_msg": "Browser tab matching 'New Tab' is not found in Brave.",
+    "final_result": "Created new tab in Brave.",
+    "status": "COMPLETED",
+    "latency_ms": 788.8,
+    "activities": [
+      {
+        "name": "agent.plan",
+        "summary": "Selected freeLLMAPI / auto."
+      },
+      {
+        "name": "computer.hotkey",
+        "summary": "[keyboard_shortcut] Created new tab in Brave.",
+        "status": "completed"
+      }
+    ]
+  },
+  {
+    "prompt": "Open a new tab in Brave and navigate to https://google.com",
+    "intent": "BROWSER_NAVIGATE",
+    "target": "https://google.com",
+    "capability": "BROWSER_NAVIGATE",
+    "execution_tier": "Tier 3: Structured Desktop Layer",
+    "vision_invoked": false,
+    "vision_tools": [],
+    "verified": false,
+    "verification_msg": "Browser tab matching 'https://google.com' is not found in Brave.",
+    "final_result": "Requested navigation to 'https://google.com'.",
+    "status": "COMPLETED",
+    "latency_ms": 2410.3,
+    "activities": [
+      {
+        "name": "agent.plan",
+        "summary": "Selected freeLLMAPI / auto."
+      },
+      {
+        "name": "browser.open_url",
+        "summary": "[browser_navigation] Requested navigation to 'https://google.com'.",
+        "status": "completed"
+      }
+    ]
+  },
+  {
+    "prompt": "Tell me the title of the currently active browser tab",
+    "intent": "BROWSER_TAB_LIST",
+    "target": "",
+    "capability": "BROWSER_TAB_LIST",
+    "execution_tier": "Tier 3: Structured Desktop Layer",
+    "vision_invoked": false,
+    "vision_tools": [],
+    "verified": true,
+    "verification_msg": "Verified.",
+    "final_result": "Open tabs in Brave:\n[{\"title\": \"127.0.0.1:5173\", \"selected\": false, \"rect\": {\"left\": 18, \"top\": 99, \"right\": 216, \"bottom\": 159, \"width\": 198, \"height\": 60}}, {\"title\": \"Pluton AI Progress - Memory usage - 462 MB\", \"selected\": true, \"rect\": {\"left\": 213, \"top\": 99, \"right\": 411, \"bottom\": 159, \"width\": 198, \"height\": 60}}, {\"title\": \"Kimi Pricing | Membership Plans and Subscription Options\", \"selected\": false, \"rect\": {\"left\": 408, \"top\": 99, \"right\": 606, \"bottom\": 159, \"width\": 198, \"height\": 60}}]",
+    "status": "COMPLETED",
+    "latency_ms": 103.7,
+    "activities": [
+      {
+        "name": "agent.plan",
+        "summary": "Selected freeLLMAPI / auto."
+      },
+      {
+        "name": "computer.list_browser_tabs",
+        "summary": "[ui_automation] Open tabs in Brave:\n[{\"title\": \"127.0.0.1:5173\", \"selected\": false, \"rect\": {\"left\": 18, \"top\": 99, \"right\": 216, \"bottom\": 159, \"width\": 198, \"height\": 60}}, {\"title\": \"Pluton AI Progress - Memory usage - 462 MB\", \"selected\": true, \"rect\": {\"left\": 213, \"top\": 99, \"right\": 411, \"bottom\": 159, \"width\": 198, \"height\": 60}}, {\"title\": \"Kimi Pricing | Membership Plans and Subscription Options\", \"selected\": false, \"rect\": {\"left\": 408, \"top\": 99, \"right\": 606, \"bottom\": 159, \"width\": 198, \"height\": 60}}]",
+        "status": "completed"
+      }
+    ]
+  },
+  {
+    "prompt": "Switch to the tab containing Google",
+    "intent": "BROWSER_TAB_SWITCH",
+    "target": "The",
+    "capability": "BROWSER_TAB_SWITCH",
+    "execution_tier": "Tier 3: Structured Desktop Layer",
+    "vision_invoked": false,
+    "vision_tools": [],
+    "verified": false,
+    "verification_msg": "Tab 'The' is not active in Brave.",
+    "final_result": "Tab 'The' not found in Brave.",
+    "status": "FAILED",
+    "latency_ms": 621.5,
+    "activities": [
+      {
+        "name": "agent.plan",
+        "summary": "Selected freeLLMAPI / auto."
+      },
+      {
+        "name": "computer.switch_browser_tab",
+        "summary": "[structured_control] Tab 'The' not found in Brave.",
+        "status": "failed"
+      }
+    ]
+  },
+  {
+    "prompt": "Close the Google tab",
+    "intent": "BROWSER_TAB_CLOSE",
+    "target": "Google",
+    "capability": "BROWSER_TAB_CLOSE",
+    "execution_tier": "Tier 3: Structured Desktop Layer",
+    "vision_invoked": false,
+    "vision_tools": [],
+    "verified": true,
+    "verification_msg": "Tab 'Google' was closed.",
+    "final_result": "I attempted to close the Google tab in Brave, but it could not be closed: Model did not return valid JSON coordinate data: User Safety: safe",
+    "status": "FAILED",
+    "latency_ms": 6845.9,
+    "activities": [
+      {
+        "name": "agent.plan",
+        "summary": "Selected freeLLMAPI / auto."
+      },
+      {
+        "name": "computer.close_browser_tab",
+        "summary": "[structured_control] I attempted to close the Google tab in Brave, but it could not be closed: Model did not return valid JSON coordinate data: User Safety: safe",
+        "status": "failed"
+      }
+    ]
+  },
+  {
+    "prompt": "Open Windows Settings",
+    "intent": "APP_LAUNCH",
+    "target": "windows settings",
+    "capability": "APP_LAUNCH",
+    "execution_tier": "Tier 3: Structured Desktop Layer",
+    "vision_invoked": false,
+    "vision_tools": [],
+    "verified": true,
+    "verification_msg": "Window matching 'Settings' is active.",
+    "final_result": "Switched to already running window 'Settings'.",
+    "status": "COMPLETED",
+    "latency_ms": 462.2,
+    "activities": [
+      {
+        "name": "agent.plan",
+        "summary": "Selected freeLLMAPI / auto."
+      },
+      {
+        "name": "computer.launch_app",
+        "summary": "[focus_existing_window] Switched to already running window 'Settings'.",
+        "status": "completed"
+      }
+    ]
+  },
+  {
+    "prompt": "List all currently open windows",
+    "intent": "WINDOW_LIST",
+    "target": "",
+    "capability": "WINDOW_LIST",
+    "execution_tier": "Tier 3: Structured Desktop Layer",
+    "vision_invoked": false,
+    "vision_tools": [],
+    "verified": true,
+    "verification_msg": "Verified.",
+    "final_result": "Open desktop windows:\n[{\"hwnd\": 66668, \"title\": \"Pluton AI Progress - Brave\", \"class_name\": \"Chrome_WidgetWin_1\", \"pid\": 11492, \"rect\": {\"left\": 3, \"top\": 99, \"right\": 981, \"bottom\": 648, \"width\": 978, \"height\": 549}, \"is_active\": false}, {\"hwnd\": 67096, \"title\": \"Project Pluton Status Rev...\", \"class_name\": \"Chrome_WidgetWin_1\", \"pid\": 25908, \"rect\": {\"left\": -11, \"top\": -11, \"right\": 1931, \"bottom\": 1091, \"width\": 1942, \"height\": 1102}, \"is_active\": false}, {\"hwnd\": 1966484, \"title\": \"FreeLLMAPI \\u00b7 Unified LLM Router\", \"class_name\": \"Chrome_WidgetWin_1\", \"pid\": 26404, \"rect\": {\"left\": 60, \"top\": 0, \"right\": 1860, \"bottom\": 1080, \"width\": 1800, \"height\": 1080}, \"is_active\": false}, {\"hwnd\": 327702, \"title\": \"Settings\", \"class_name\": \"Windows.UI.Core.CoreWindow\", \"pid\": 18192, \"rect\": {\"left\": 0, \"top\": 11, \"right\": 1920, \"bottom\": 1091, \"width\": 1920, \"height\": 1080}, \"is_active\": false}, {\"hwnd\": 328378, \"title\": \"Windows Input Experience\", \"class_name\": \"Windows.UI.Core.CoreWindow\", \"pid\": 20856, \"rect\": {\"left\": 0, \"top\": 0, \"right\": 1920, \"bottom\": 1080, \"width\": 1920, \"height\": 1080}, \"is_active\": false}, {\"hwnd\": 263064, \"title\": \"NVIDIA GeForce Overlay\", \"class_name\": \"CEF-OSC-WIDGET\", \"pid\": 17492, \"rect\": {\"left\": 0, \"top\": 0, \"right\": 1920, \"bottom\": 1080, \"width\": 1920, \"height\": 1080}, \"is_active\": false}, {\"hwnd\": 853756, \"title\": \"Settings\", \"class_name\": \"ApplicationFrameWindow\", \"pid\": 24996, \"rect\": {\"left\": -32000, \"top\": -32000, \"right\": -31763, \"bottom\": -31961, \"width\": 237, \"height\": 39}, \"is_active\": false}, {\"hwnd\": 65990, \"title\": \"Program Manager\", \"class_name\": \"Progman\", \"pid\": 12860, \"rect\": {\"left\": 0, \"top\": 0, \"right\": 1920, \"bottom\": 1080, \"width\": 1920, \"height\": 1080}, \"is_active\": false}]",
+    "status": "COMPLETED",
+    "latency_ms": 4.4,
+    "activities": [
+      {
+        "name": "agent.plan",
+        "summary": "Selected freeLLMAPI / auto."
+      },
+      {
+        "name": "computer.list_windows",
+        "summary": "[ui_automation] Open desktop windows:\n[{\"hwnd\": 66668, \"title\": \"Pluton AI Progress - Brave\", \"class_name\": \"Chrome_WidgetWin_1\", \"pid\": 11492, \"rect\": {\"left\": 3, \"top\": 99, \"right\": 981, \"bottom\": 648, \"width\": 978, \"height\": 549}, \"is_active\": false}, {\"hwnd\": 67096, \"title\": \"Project Pluton Status Rev...\", \"class_name\": \"Chrome_WidgetWin_1\", \"pid\": 25908, \"rect\": {\"left\": -11, \"top\": -11, \"right\": 1931, \"bottom\": 1091, \"width\": 1942, \"height\": 1102}, \"is_active\": false}, {\"hwnd\": 1966484, \"title\": \"FreeLLMAPI \\u00b7 Unified LLM Router\", \"class_name\": \"Chrome_WidgetWin_1\", \"pid\": 26404, \"rect\": {\"left\": 60, \"top\": 0, \"right\": 1860, \"bottom\": 1080, \"width\": 1800, \"height\": 1080}, \"is_active\": false}, {\"hwnd\": 327702, \"title\": \"Settings\", \"class_name\": \"Windows.UI.Core.CoreWindow\", \"pid\": 18192, \"rect\": {\"left\": 0, \"top\": 11, \"right\": 1920, \"bottom\": 1091, \"width\": 1920, \"height\": 1080}, \"is_active\": false}, {\"hwnd\": 328378, \"title\": \"Windows Input Experience\", \"class_name\": \"Windows.UI.Core.CoreWindow\", \"pid\": 20856, \"rect\": {\"left\": 0, \"top\": 0, \"right\": 1920, \"bottom\": 1080, \"width\": 1920, \"height\": 1080}, \"is_active\": false}, {\"hwnd\": 263064, \"title\": \"NVIDIA GeForce Overlay\", \"class_name\": \"CEF-OSC-WIDGET\", \"pid\": 17492, \"rect\": {\"left\": 0, \"top\": 0, \"right\": 1920, \"bottom\": 1080, \"width\": 1920, \"height\": 1080}, \"is_active\": false}, {\"hwnd\": 853756, \"title\": \"Settings\", \"class_name\": \"ApplicationFrameWindow\", \"pid\": 24996, \"rect\": {\"left\": -32000, \"top\": -32000, \"right\": -31763, \"bottom\": -31961, \"width\": 237, \"height\": 39}, \"is_active\": false}, {\"hwnd\": 65990, \"title\": \"Program Manager\", \"class_name\": \"Progman\", \"pid\": 12860, \"rect\": {\"left\": 0, \"top\": 0, \"right\": 1920, \"bottom\": 1080, \"width\": 1920, \"height\": 1080}, \"is_active\": false}]",
+        "status": "completed"
+      }
+    ]
+  },
+  {
+    "prompt": "Switch to the Settings window",
+    "intent": "WINDOW_SWITCH",
+    "target": "Settings",
+    "capability": "WINDOW_SWITCH",
+    "execution_tier": "Tier 3: Structured Desktop Layer",
+    "vision_invoked": false,
+    "vision_tools": [],
+    "verified": false,
+    "verification_msg": "Active window '' does not match 'Settings'.",
+    "final_result": "Switched focus to window 'Settings'.",
+    "status": "FAILED",
+    "latency_ms": 456.7,
+    "activities": [
+      {
+        "name": "agent.plan",
+        "summary": "Selected freeLLMAPI / auto."
+      },
+      {
+        "name": "computer.switch_window",
+        "summary": "[ui_automation] Switched focus to window 'Settings'.",
+        "status": "failed"
+      }
+    ]
+  },
+  {
+    "prompt": "Open Notepad",
+    "intent": "APP_LAUNCH",
+    "target": "notepad",
+    "capability": "APP_LAUNCH",
+    "execution_tier": "Tier 3: Structured Desktop Layer",
+    "vision_invoked": false,
+    "vision_tools": [],
+    "verified": false,
+    "verification_msg": "Window matching 'Notepad' is not found.",
+    "final_result": "Launched 'notepad'.",
+    "status": "COMPLETED",
+    "latency_ms": 1881.5,
+    "activities": [
+      {
+        "name": "agent.plan",
+        "summary": "Selected freeLLMAPI / auto."
+      },
+      {
+        "name": "computer.launch_app",
+        "summary": "[native_app_launch] Launched 'notepad'.",
+        "status": "completed"
+      }
+    ]
+  },
+  {
+    "prompt": "Type \"Hello from Pluton\" into Notepad",
+    "intent": "UI_INTERACT",
+    "target": "Notepad",
+    "capability": "UI_INTERACT",
+    "execution_tier": "Tier 3: Structured Desktop Layer",
+    "vision_invoked": false,
+    "vision_tools": [],
+    "verified": true,
+    "verification_msg": "Value was successfully set on element 'Notepad'.",
+    "final_result": "Successfully completed: Type \"Hello from Pluton\" into Notepad. Value was successfully set on element 'Notepad'.",
+    "status": "COMPLETED",
+    "latency_ms": 8056.3,
+    "activities": [
+      {
+        "name": "agent.plan",
+        "summary": "Selected freeLLMAPI / auto."
+      },
+      {
+        "name": "computer.list_windows",
+        "summary": "Tool result observed by agent.",
+        "status": "completed"
+      },
+      {
+        "name": "app.launch",
+        "summary": "Tool result observed by agent.",
+        "status": "completed"
+      },
+      {
+        "name": "app.launch",
+        "summary": "Tool result observed by agent.",
+        "status": "completed"
+      },
+      {
+        "name": "computer.inspect_ui_tree",
+        "summary": "Tool result observed by agent.",
+        "status": "completed"
+      },
+      {
+        "name": "computer.inspect_ui_tree",
+        "summary": "Tool result observed by agent.",
+        "status": "completed"
+      },
+      {
+        "name": "computer.switch_window",
+        "summary": "Tool result observed by agent.",
+        "status": "completed"
+      }
+    ]
+  }
+]

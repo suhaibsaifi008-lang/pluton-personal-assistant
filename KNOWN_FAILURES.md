@@ -1,0 +1,29 @@
+﻿# PLUTON V2 — COMPREHENSIVE FAILURE TAXONOMY & HISTORY
+
+---
+
+## 1. Executive Summary
+
+This document records the complete failure history, root causes, architectural lessons, and preventative designs established during the development and hardening of Pluton V2 across Gates 1 through 7.
+
+Every failure class documented here must have an architectural guarantee in the new assistant architecture ensuring it cannot re-emerge.
+
+---
+
+## 2. Historical Failure Taxonomy & Prevention Matrix
+
+| Failure ID | Failure Description | Observed Symptom | Root Cause | Subsystem Responsible | Architectural Prevention in New Build |
+| :--- | :--- | :--- | :--- | :--- | :--- |
+| **FAIL-01** | **Natural Conversation Enters Computer Control** | Conversational questions ("How are you?", "Explain quantum physics") triggered computer automation plans. | Single intake pipeline without a front-door deterministic task classifier. | Front Door Router / Planner | **Dedicated Front Door Router (Milestone 2):** Fast sub-10ms intent classifier instantly directs conversational turns to conversational LLM without invoking `SemanticPlanner`. |
+| **FAIL-02** | **Arithmetic Injected into Unrelated Window** | "Calculate 25 * 4" launched Calculator or typed numbers into the active code editor. | Math treated as desktop UI automation rather than deterministic AST evaluation. | Intent Compiler / Tool Router | **Deterministic Capability Fast Plane (Milestone 3):** All mathematical expressions evaluate directly via Python AST engine with zero OS input. |
+| **FAIL-03** | **Hallucinated Date / Time** | Model answered current time/date based on pre-training cutoff rather than system clock. | Temporal state omitted from prompt context. | Context Assembler | **Dynamic World Context (Milestone 4):** Standardized injection of live system timestamp, timezone, and workspace metadata. |
+| **FAIL-04** | **Action vs Target Conflation** | TargetResolver attempted to resolve action names or commands (e.g. `explorer.exe`) as physical UI elements. | Actions and targets passed through the same unstructured resolution pipeline. | TargetResolver | **Strict Type Separation:** `TargetResolver` strictly accepts addressable entities (applications, URLs, HWNDs, tabs, files). Capabilities and parameters are never routed to resolver. |
+| **FAIL-05** | **File Explorer / App Launch Regressions** | Launching File Explorer failed or opened duplicate instances because window class `CabinetWClass` was not recognized. | Incomplete Win32 executable image and process class name discovery. | App Domain (`domains/app.py`) | **Multi-Source Process Registry:** Hybrid process image matching with `EnumWindows` and executable path normalization. |
+| **FAIL-06** | **Browser Tab Loss & Navigation Drift** | Navigating to a URL wiped existing tab state or opened detached windows. | Lack of native browser tab tracking. | Browser Domain (`browser_engine.py`) | **Persistent Browser Runtime (Milestone 7):** UIA tab tree enumeration and CDP tab session tracking with `BROWSER_TAB_PRESENCE` verification. |
+| **FAIL-07** | **Pronoun & Contextual Target Drift** | Multi-turn requests ("bring it forward", "close it") failed to identify previously referenced apps. | Contextual references not mapped to symbolic IR tokens. | Semantic Normalizer / Context Assembler | **Symbolic Contextual Tokens:** System prompt and IR enforce `contextual_previous_target` and `contextual_active_window` resolved deterministically against `WorldState`. |
+| **FAIL-08** | **Verification Confusion (ACTION vs VERIFY ONLY)** | "Confirm report.csv exists" triggered file creation or terminal commands. | System prompt lacked explicit distinction between mutating actions and verification goals. | Semantic Planner | **First-Class Verification Contracts (Milestone 4):** Semantic goal contracts explicitly classify requests into `ACTION`, `ACTION + VERIFY`, and `VERIFY ONLY`. |
+| **FAIL-09** | **Safety Risk Downgrading** | Destructive requests ("format drive", "kill process") emitted `risk_level="LOW"` from upstream LLM. | Relying on model self-assessment of safety risks. | Semantic Normalizer / Control Kernel | **Authoritative Runtime Safety Policy:** Runtime capability metadata overrides model proposal. Destructive capabilities are permanently locked to `risk_level="HIGH"`. |
+| **FAIL-10** | **Remote Provider Latency & Queue Timeouts** | LLM planning calls exhibited $15\text{--}25\text{s}$ delays and 9% timeout rates on free proxies. | Remote proxy queuing and oversized uncompact prompt schemas. | Provider Subsystem | **Provider Fast Fallback & Connection Keep-Alive:** Dynamic model fallback (`auto` $\to$ `llama-3.1-70b`), cached compact schemas, and connection pooling. |
+| **FAIL-11** | **Runaway Evaluation Loops** | Evaluation runners spawned duplicate concurrent tasks on failure. | Lack of exclusive process locks and persistent resumption state. | Evaluation Harness | **PID File Locking & Append-Safe JSONL:** Exclusive `.eval.lock` and incremental checkpointing. |
+| **FAIL-12** | **False Success Reporting** | Agent reported task success when window failed to focus or file failed to write. | Assuming tool execution return code equals physical environmental success. | Verification Engine | **Mandatory Physical Postcondition Readback:** Actions require verified physical evidence (`FILESYSTEM_CHECK`, `WINDOW_PRESENCE`, `BROWSER_TITLE_MATCH`) before completion. |
+| **FAIL-13** | **Duplicate Side Effects from Unbounded Retries** | Retrying a failed file append created duplicate file contents. | Replan engine executing identical strategies without idempotency checks. | Replan Engine | **Idempotent Strategy Replanning:** Replan engine strictly selects materially different alternative strategies (capped at 3 attempts). |

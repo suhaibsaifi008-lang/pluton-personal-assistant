@@ -1,0 +1,28 @@
+=== FreeLLMAPI Investigation Report ===
+
+1. FreeLLMAPI installation status:
+   - FreeLLMAPI.exe processes exist (3 instances found via tasklist)
+   - However, the server is NOT currently listening on documented ports
+
+2. Documented FreeLLMAPI configuration:
+   - Default server port: 3001
+   - OpenAI-compatible base URL: http://localhost:3001/v1
+   - Supported endpoints: /v1/chat/completions, /v1/responses, /v1/models
+   - Authentication: FreeLLMAPI unified API key
+
+3. Port check results:
+   - Port 3001: NOT listening (connection refused)
+   - Port 8080: NOT listening (connection refused)
+
+4. Current PLUTON FreeLLMAPI provider configuration:
+   - base_url: http://localhost:8080 (from Phase 4 implementation)
+   - This does NOT match the documented port 3001
+
+5. Recommendation:
+   - FreeLLMAPI server needs to be started before PLUTON can use it
+   - Once running on port 3001, PLUTON provider needs base_url update
+   - Model selection should use "auto" for FreeLLMAPI automatic routing
+
+6. Current PLUTON provider has hard-coded model priority list:
+   - gemini-flash, deepseek-v4, kimi, qwen-coder, glm, nemotron, gpt-oss, mistral
+   - This should be replaced with FreeLLMAPI "auto" model selection
