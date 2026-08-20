@@ -133,6 +133,11 @@ async def _cap_browser_scroll(direction: str = "down", amount: int = 300, browse
     ctx = _get_current_context()
     return await _engine().web.scroll(direction=direction, amount=amount, context=ctx)
 
+async def _cap_browser_search(query: str, engine: str = "", browser: str = "Brave") -> dict[str, Any]:
+    """Search the web or active site (Google/YouTube) directly with query."""
+    ctx = _get_current_context()
+    return await _engine().browser.search(query=query, engine=engine, browser_name=browser, context=ctx)
+
 async def _cap_browser_inspect_page(browser: str = "Brave") -> dict[str, Any]:
     """Inspect the current browser page DOM — returns URL, title, and interactive elements with CSS selectors."""
     from ..subsystems.computer.browser_engine import BROWSER_ENGINE
@@ -302,6 +307,7 @@ def create_canonical_model_registry() -> ToolRegistry:
     reg.register(Tool("browser.list_tabs", "List open tabs in Brave, Chrome, or Edge.", PermissionLevel.LOW, _schema({"browser": {"type": "string", "description": "Browser name: 'Brave', 'Chrome', or 'Edge'"}}, []), _cap_browser_list_tabs))
     reg.register(Tool("browser.open_tab", "Open a new browser tab with optional URL.", PermissionLevel.LOW, _schema({"url": {"type": "string", "description": "URL to open"}, "browser": {"type": "string", "description": "Browser name"}}, []), _cap_browser_open_tab))
     reg.register(Tool("browser.navigate", "Navigate a browser tab to a URL.", PermissionLevel.LOW, _schema({"url": {"type": "string", "description": "Destination URL (http/https)"}, "target_tab": {"type": "string", "description": "Optional title keyword of tab"}, "browser": {"type": "string", "description": "Browser name"}}, ["url"]), _cap_browser_navigate))
+    reg.register(Tool("browser.search", "Search the web or YouTube directly for a query. Opens search results in active browser instantly.", PermissionLevel.LOW, _schema({"query": {"type": "string", "description": "Search query text (e.g. 'Minecraft', 'PLUTON AI')"}, "engine": {"type": "string", "description": "Optional search engine ('google', 'youtube')"}, "browser": {"type": "string", "description": "Browser name"}}, ["query"]), _cap_browser_search))
     reg.register(Tool("browser.switch_tab", "Switch active tab in browser by title keyword.", PermissionLevel.LOW, _schema({"target_tab": {"type": "string", "description": "Title keyword of tab to switch to"}, "browser": {"type": "string", "description": "Browser name"}}, ["target_tab"]), _cap_browser_switch_tab))
     reg.register(Tool("browser.close_tab", "Close a browser tab by title keyword.", PermissionLevel.LOW, _schema({"target_tab": {"type": "string", "description": "Title keyword of tab to close"}, "browser": {"type": "string", "description": "Browser name"}}, ["target_tab"]), _cap_browser_close_tab))
     reg.register(Tool("browser.get_state", "Get current browser URL and title.", PermissionLevel.LOW, _schema({"browser": {"type": "string", "description": "Browser name"}}, []), _cap_browser_get_state))

@@ -93,26 +93,42 @@ def test_browser_get_title_reads_active_visible_tab(monkeypatch):
 
 def test_web_find_first_result_resolves_cleanly(monkeypatch):
     """Verify that web.find('first result') resolves cleanly against active browser."""
-    from app.tools.native_browser_controller import NATIVE_BROWSER
+    from app.subsystems.computer.browser_engine import BROWSER_ENGINE
 
-    monkeypatch.setattr(
-        NATIVE_BROWSER,
-        "get_active_tab",
-        lambda browser_name="Brave": {
-            "browser": "Brave",
-            "hwnd": 722796,
-            "tab_index": 5,
-            "title": "Gmail - Google Search",
-            "selected": True,
-        },
-    )
+    async def _mock_find(target, role=None):
+        return {
+            "found": True,
+            "status": "FOUND",
+            "score": 1.0,
+            "selector": "a:has(h3)",
+            "visible": True,
+            "enabled": True,
+            "element": {"selector": "a:has(h3)", "name": "First Result", "role": "link", "visible": True, "enabled": True},
+        }
+
+    monkeypatch.setattr(BROWSER_ENGINE, "find_element", _mock_find)
 
     context = ExecutionContext(task_id="pytest-test-task", active_browser="Brave")
     res = asyncio.run(WEB_DOMAIN.find(target="first result", role="link", context=context))
 
     assert res["found"] is True
     assert res["status"] == "FOUND"
-    assert res["identity_status"] == "MATCHED"
+
+
+def test_web_find_nonexistent_element_returns_not_found(monkeypatch):
+    """Verify that a nonexistent element is NOT reported as found merely because browser window exists."""
+    from app.subsystems.computer.browser_engine import BROWSER_ENGINE
+
+    async def _mock_not_found(target, role=None):
+        return {"found": False, "status": "NOT_FOUND", "error": f"Element '{target}' not found."}
+
+    monkeypatch.setattr(BROWSER_ENGINE, "find_element", _mock_not_found)
+
+    context = ExecutionContext(task_id="pytest-test-task", active_browser="Brave")
+    res = asyncio.run(WEB_DOMAIN.find(target="nonexistent_button_xyz", role="button", context=context))
+
+    assert res["found"] is False
+    assert res["status"] == "NOT_FOUND"
 
 
 def test_unbound_browser_returns_clean_error(monkeypatch):

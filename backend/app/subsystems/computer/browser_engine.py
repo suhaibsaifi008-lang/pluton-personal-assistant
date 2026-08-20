@@ -799,15 +799,11 @@ class BrowserEngine:
                     "title": title,
                 }
             title = await page.title()
-            inspect_res = await self.inspect_page()
-            elements = inspect_res.get("elements", [])
             return {
                 "success": True,
                 "method": "playwright",
                 "url": page.url,
                 "title": title,
-                "elements": elements,
-                "element_count": len(elements),
                 "status_code": resp.status if resp else 200,
                 "verified": True,
             }

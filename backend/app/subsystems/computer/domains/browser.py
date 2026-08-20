@@ -121,6 +121,12 @@ class BrowserDomainHandler:
         if not q_str:
             return {"success": False, "action": "search", "error": "INVALID_INPUT: Search query must be a non-empty string."}
         bname = str(browser_name or "Brave").strip() or "Brave"
+        eng = str(engine or "").strip().lower()
+
+        # Check active tab to see if user is currently on YouTube
+        active_tab = NATIVE_BROWSER.get_active_tab(bname)
+        active_title = (active_tab.get("title") or "").lower() if active_tab else ""
+        is_youtube = eng == "youtube" or "youtube" in active_title or "youtube" in q_str.lower()
 
         # Tier 1: Type into active search box using CDP/Playwright DOM if active
         try:
@@ -133,7 +139,12 @@ class BrowserDomainHandler:
             logger.info("[SEARCH] Tier 1 CDP exception: %s, falling through to Tier 2.", e)
 
         # Tier 2: Construct search URL and navigate via native browser
-        search_url = f"https://www.google.com/search?q={urllib.parse.quote_plus(q_str)}"
+        if is_youtube:
+            clean_q = re.sub(r"\b(?:on\s+)?youtube\b", "", q_str, flags=re.IGNORECASE).strip() or q_str
+            search_url = f"https://www.youtube.com/results?search_query={urllib.parse.quote_plus(clean_q)}"
+        else:
+            search_url = f"https://www.google.com/search?q={urllib.parse.quote_plus(q_str)}"
+
         logger.info("[SEARCH] Tier 2: Navigating to search URL: %s", search_url)
         nav_res = NATIVE_BROWSER.open_tab(url=search_url, browser_name=bname)
         if nav_res.get("success"):
