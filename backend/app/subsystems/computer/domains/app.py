@@ -119,30 +119,47 @@ class AppDomainHandler:
                 context.bound_pid = res["pid"]
         return res
 
-    def focus(self, hwnd: int | None = None, app_name: str | None = None, context: ExecutionContext | None = None) -> dict[str, Any]:
+    def focus(
+        self,
+        hwnd: int | None = None,
+        app_name: str | None = None,
+        target: str | int | None = None,
+        context: ExecutionContext | None = None,
+        **kwargs: Any,
+    ) -> dict[str, Any]:
         """Focus an existing window by HWND or semantic name."""
         KERNEL.assert_authorized(context.task_id if context else None)
         from ..adapters.pywinauto_adapter import PYWINAUTO_ADAPTER
-        target = hwnd or app_name
-        if not target:
+        tgt = hwnd or target or app_name
+        if not tgt:
             return {"success": False, "error": "No window target specified"}
-        res = PYWINAUTO_ADAPTER.focus_window(target)
+        res = PYWINAUTO_ADAPTER.focus_window(tgt)
         if res.get("success") and context and res.get("hwnd"):
             context.bound_hwnd = res["hwnd"]
         return res
 
-    def close(self, hwnd: int | None = None, app_name: str | None = None, context: ExecutionContext | None = None) -> dict[str, Any]:
+    def close(
+        self,
+        hwnd: int | None = None,
+        app_name: str | None = None,
+        target: str | int | None = None,
+        context: ExecutionContext | None = None,
+        **kwargs: Any,
+    ) -> dict[str, Any]:
         """Close an application window gracefully."""
         KERNEL.assert_authorized(context.task_id if context else None)
         from ..adapters.pywinauto_adapter import PYWINAUTO_ADAPTER
         target_hwnd = hwnd
-        if not target_hwnd and app_name:
-            matched = PYWINAUTO_ADAPTER.find_windows_by_app(app_name)
+        resolved_name = str(target or app_name or "")
+        if isinstance(target, int):
+            target_hwnd = target
+        elif not target_hwnd and resolved_name:
+            matched = PYWINAUTO_ADAPTER.find_windows_by_app(resolved_name)
             if matched:
                 target_hwnd = matched[0].get("hwnd")
 
         if not target_hwnd:
-            return {"success": False, "error": f"Window for '{app_name or hwnd}' not found"}
+            return {"success": False, "error": f"Window for '{resolved_name or hwnd}' not found"}
 
         res = PYWINAUTO_ADAPTER.close_window(target_hwnd)
         if res.get("success") and context and context.bound_hwnd == target_hwnd:

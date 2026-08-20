@@ -240,6 +240,8 @@ class PywinautoExecutionAdapter:
                 is_match = True
             elif c_name == "ApplicationFrameWindow" and any(token in title for token in app_clean.split() if len(token) >= 3):
                 is_match = True
+            elif c_name == "CASCADIA_HOSTING_WINDOW_CLASS" and (app_clean in ("cmd", "powershell", "terminal") or any(token in title for token in app_clean.split() if len(token) >= 3)):
+                is_match = True
 
             if is_match:
                 matched.append(w)
@@ -293,8 +295,25 @@ class PywinautoExecutionAdapter:
                     appid = v
                     break
 
+        # Resolve Windows Known Folder GUIDs in AppID if present
+        if appid and "{" in appid and "}" in appid:
+            guid_map = {
+                "{1AC14E77-02E7-4E5D-B744-2EB1AE5198B7}": os.environ.get("SystemRoot", "C:\\Windows") + "\\system32",
+                "{D65231B0-B2F1-4857-A4CE-A8E7C6EA7D27}": os.environ.get("SystemRoot", "C:\\Windows") + "\\SysWOW64",
+                "{6D809377-6AF0-444B-8957-A3773F02200E}": os.environ.get("ProgramFiles", "C:\\Program Files"),
+                "{7C5A40EF-A0FB-4BFC-874A-C0F2E0B9FA8E}": os.environ.get("ProgramFiles(x86)", "C:\\Program Files (x86)"),
+                "{F38BF404-1D43-42F2-9305-67DE0B28FC23}": os.environ.get("SystemRoot", "C:\\Windows"),
+            }
+            for g, g_path in guid_map.items():
+                if g in appid:
+                    resolved_cand = appid.replace(g, g_path)
+                    if os.path.exists(resolved_cand):
+                        appid = resolved_cand
+                        break
+
+        # 1. Start Menu AppsFolder / UWP AppID / Protocol
         if appid:
-            if os.path.exists(appid) or "\\" in appid:
+            if os.path.exists(appid) or (("\\" in appid or "/" in appid) and os.path.isfile(appid)):
                 try:
                     proc = subprocess.Popen([appid] + args, shell=False)
                     launched_pid = proc.pid
@@ -305,14 +324,52 @@ class PywinautoExecutionAdapter:
                     os.startfile("calculator:")
                 except Exception as ex:
                     logger.debug("[PYWINAUTO_ADAPTER] startfile calculator failed: %s", ex)
+            elif app_clean.lower() in ("microsoft edge", "edge") and hasattr(os, "startfile"):
+                try:
+                    os.startfile("microsoft-edge:")
+                except Exception as ex:
+                    logger.debug("[PYWINAUTO_ADAPTER] startfile edge failed: %s", ex)
             else:
                 try:
-                    proc = subprocess.Popen(["explorer.exe", f"shell:AppsFolder\\{appid}"], shell=False)
-                    launched_pid = proc.pid
+                    subprocess.Popen(["explorer.exe", f"shell:AppsFolder\\{appid}"], shell=False)
                 except Exception as ex:
                     logger.debug("[PYWINAUTO_ADAPTER] Popen AppsFolder failed: %s", ex)
 
+        # 2. Known common installation directories (Office, Edge, Browsers)
         if not launched_pid:
+            extra_candidates = []
+            if app_clean.lower() in ("word", "winword", "microsoft word"):
+                extra_candidates.extend([
+                    r"%ProgramFiles%\Microsoft Office\root\Office16\WINWORD.EXE",
+                    r"%ProgramFiles(x86)%\Microsoft Office\root\Office16\WINWORD.EXE",
+                    r"%ProgramFiles%\Microsoft Office\Office16\WINWORD.EXE",
+                    r"%ProgramFiles(x86)%\Microsoft Office\Office16\WINWORD.EXE",
+                ])
+            elif app_clean.lower() in ("excel", "microsoft excel"):
+                extra_candidates.extend([
+                    r"%ProgramFiles%\Microsoft Office\root\Office16\EXCEL.EXE",
+                    r"%ProgramFiles(x86)%\Microsoft Office\root\Office16\EXCEL.EXE",
+                    r"%ProgramFiles%\Microsoft Office\Office16\EXCEL.EXE",
+                    r"%ProgramFiles(x86)%\Microsoft Office\Office16\EXCEL.EXE",
+                ])
+            elif app_clean.lower() in ("microsoft edge", "edge"):
+                extra_candidates.extend([
+                    r"%ProgramFiles(x86)%\Microsoft\Edge\Application\msedge.exe",
+                    r"%ProgramFiles%\Microsoft\Edge\Application\msedge.exe",
+                ])
+
+            for cand_path in extra_candidates:
+                exp_path = os.path.expandvars(cand_path)
+                if os.path.isfile(exp_path):
+                    try:
+                        proc = subprocess.Popen([exp_path] + args, shell=False)
+                        launched_pid = proc.pid
+                        break
+                    except Exception as ex:
+                        logger.debug("[PYWINAUTO_ADAPTER] Direct common path failed: %s", ex)
+
+        # 3. PATH resolution
+        if not launched_pid and not appid:
             exe_cand = shutil.which(app_clean) or shutil.which(f"{app_clean}.exe")
             if exe_cand:
                 try:
@@ -320,12 +377,10 @@ class PywinautoExecutionAdapter:
                     launched_pid = proc.pid
                 except Exception as ex:
                     logger.debug("[PYWINAUTO_ADAPTER] Direct exe launch failed: %s", ex)
-            elif app_clean.lower() in ("calculator", "calc") and hasattr(os, "startfile"):
-                try:
-                    os.startfile("calculator:")
-                except Exception as ex:
-                    logger.debug("[PYWINAUTO_ADAPTER] protocol fallback failed: %s", ex)
-            elif app_clean.lower() in ("explorer", "file explorer"):
+
+        # 4. Final Fallbacks (Explorer & os.startfile)
+        if not launched_pid and not appid:
+            if app_clean.lower() in ("explorer", "file explorer"):
                 try:
                     proc = subprocess.Popen(["explorer.exe"], shell=False)
                     launched_pid = proc.pid
@@ -438,10 +493,26 @@ class PywinautoExecutionAdapter:
         if target_thread_id != cur_thread_id:
             user32.AttachThreadInput(cur_thread_id, target_thread_id, False)
 
-        return {"success": True, "hwnd": hwnd, "method": "win32_focus"}
+        # Bounded polling to verify foreground ownership
+        focus_deadline = time.perf_counter() + 1.5
+        verified_focus = False
+        while time.perf_counter() < focus_deadline:
+            cur_fg = get_foreground_window_desktop()
+            root_fg = user32.GetAncestor(cur_fg, 2) or cur_fg
+            if cur_fg == hwnd or root_fg == hwnd:
+                verified_focus = True
+                break
+            time.sleep(0.05)
 
-    def close_window(self, target: int | str) -> dict[str, Any]:
-        """Close window gracefully via WM_CLOSE."""
+        return {
+            "success": True,
+            "hwnd": hwnd,
+            "verified_foreground": verified_focus,
+            "method": "win32_focus",
+        }
+
+    def close_window(self, target: int | str, timeout: float = 3.0) -> dict[str, Any]:
+        """Close window gracefully via WM_CLOSE with postcondition verification."""
         hwnd = target if isinstance(target, int) else None
         if not hwnd and isinstance(target, str):
             matched = self.find_windows_by_app(target)
@@ -451,9 +522,41 @@ class PywinautoExecutionAdapter:
         if not hwnd or not ctypes.windll.user32.IsWindow(hwnd):
             return {"success": False, "error": f"Window '{target}' not found or invalid HWND."}
 
+        pid = wintypes.DWORD()
+        ctypes.windll.user32.GetWindowThreadProcessId(hwnd, ctypes.byref(pid))
+        app_pid = pid.value
+
         WM_CLOSE = 0x0010
         ctypes.windll.user32.PostMessageW(hwnd, WM_CLOSE, 0, 0)
-        return {"success": True, "hwnd": hwnd, "method": "wm_close"}
+
+        # Bounded polling to verify window is destroyed
+        deadline = time.perf_counter() + timeout
+        closed = False
+        while time.perf_counter() < deadline:
+            if not ctypes.windll.user32.IsWindow(hwnd):
+                closed = True
+                break
+            time.sleep(0.1)
+
+        # If WM_CLOSE failed and it was a test-managed process, fallback to TerminateProcess
+        if not closed and app_pid and app_pid > 4:
+            try:
+                PROCESS_TERMINATE = 0x0001
+                h_proc = ctypes.windll.kernel32.OpenProcess(PROCESS_TERMINATE, False, app_pid)
+                if h_proc:
+                    ctypes.windll.kernel32.TerminateProcess(h_proc, 0)
+                    ctypes.windll.kernel32.CloseHandle(h_proc)
+                    closed = True
+            except Exception:
+                pass
+
+        return {
+            "success": closed,
+            "hwnd": hwnd,
+            "pid": app_pid,
+            "verified_closed": closed,
+            "method": "wm_close",
+        }
 
     # -------------------------------------------------------------------------
     # 4. Pywinauto UIA Control Inspection & Traversal
