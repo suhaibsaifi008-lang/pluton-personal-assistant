@@ -144,6 +144,18 @@ class BrowserEngine:
                 return self._page
 
             try:
+                # If standalone headless sandbox explicitly requested (e.g. unit tests):
+                if headless:
+                    from playwright.async_api import async_playwright
+                    if self._playwright is None:
+                        self._playwright = await async_playwright().start()
+                    self._browser = await self._playwright.chromium.launch(headless=True)
+                    self._context = await self._browser.new_context()
+                    self._page = await self._context.new_page()
+                    self._is_pw_active = True
+                    self._is_attached_to_user_browser = False
+                    return self._page
+
                 # 1. Resolve user's actual visible desktop browser window
                 win = NATIVE_BROWSER.find_browser_window("Brave") or NATIVE_BROWSER.find_browser_window("Chrome")
                 if not win or not win.get("pid"):

@@ -11,6 +11,7 @@ browser.get_title, browser.get_url, browser.wait_for_page, browser.search.
 from __future__ import annotations
 
 import asyncio
+import logging
 import re
 import urllib.parse
 from typing import Any
@@ -20,6 +21,8 @@ from app.kernel.control_kernel import KERNEL
 from app.tools.native_browser_controller import NATIVE_BROWSER
 from app.tools.uia_engine import UIA_ENGINE
 from ..browser_engine import BROWSER_ENGINE
+
+logger = logging.getLogger("pluton.computer.browser")
 
 
 class BrowserDomainHandler:
@@ -66,9 +69,11 @@ class BrowserDomainHandler:
 
     def navigate(self, url: str, browser_name: str = "Brave", browser: str | None = None, context: ExecutionContext | None = None) -> dict[str, Any]:
         """Navigate the user's visible desktop browser window to the specified URL."""
-        bname = str(browser or browser_name or "Brave").strip()
-        url_str = str(url or "").strip()
         KERNEL.assert_authorized(context.task_id if context else None)
+        bname = str(browser or browser_name or "Brave").strip() or "Brave"
+        url_str = str(url or "").strip()
+        if not url_str:
+            return {"success": False, "error": "INVALID_INPUT: Navigation URL must be a non-empty string."}
 
         # 1. If Playwright is attached over CDP to authoritative Brave, navigate via Playwright
         if BROWSER_ENGINE._is_attached_to_user_browser and BROWSER_ENGINE._page and not BROWSER_ENGINE._page.is_closed():
@@ -111,64 +116,72 @@ class BrowserDomainHandler:
 
     async def search(self, query: str, engine: str = "", browser_name: str = "Brave", context: ExecutionContext | None = None) -> dict[str, Any]:
         """Perform semantic search with two tiers: CDP DOM typing (Tier 1) and URL navigation fallback (Tier 2)."""
-        import logging
-        import urllib.parse
-        _logger = logging.getLogger("pluton.browser.search")
         KERNEL.assert_authorized(context.task_id if context else None)
-        bname = browser_name or "Brave"
+        q_str = str(query or "").strip()
+        if not q_str:
+            return {"success": False, "action": "search", "error": "INVALID_INPUT: Search query must be a non-empty string."}
+        bname = str(browser_name or "Brave").strip() or "Brave"
 
         # Tier 1: Type into active search box using CDP/Playwright DOM if active
         try:
             if BROWSER_ENGINE._page is not None and not BROWSER_ENGINE._page.is_closed():
-                type_res = await BROWSER_ENGINE.type_element("search box", query, press_enter=True)
+                type_res = await BROWSER_ENGINE.type_element("search box", q_str, press_enter=True)
                 if type_res.get("success"):
-                    _logger.info("[SEARCH] Tier 1 CDP success for query: %s", query)
-                    return {"success": True, "action": "search", "query": query, "tier": "cdp_dom", "observed": type_res}
+                    logger.info("[SEARCH] Tier 1 CDP success for query: %s", q_str)
+                    return {"success": True, "action": "search", "query": q_str, "tier": "cdp_dom", "observed": type_res}
         except Exception as e:
-            _logger.info("[SEARCH] Tier 1 CDP exception: %s, falling through to Tier 2.", e)
+            logger.info("[SEARCH] Tier 1 CDP exception: %s, falling through to Tier 2.", e)
 
         # Tier 2: Construct search URL and navigate via native browser
-        search_url = f"https://www.google.com/search?q={urllib.parse.quote_plus(query)}"
-        _logger.info("[SEARCH] Tier 2: Navigating to search URL: %s", search_url)
+        search_url = f"https://www.google.com/search?q={urllib.parse.quote_plus(q_str)}"
+        logger.info("[SEARCH] Tier 2: Navigating to search URL: %s", search_url)
         nav_res = NATIVE_BROWSER.open_tab(url=search_url, browser_name=bname)
         if nav_res.get("success"):
-            return {"success": True, "action": "search", "query": query, "tier": "url_navigation", "url": search_url, "observed": nav_res}
+            return {"success": True, "action": "search", "query": q_str, "tier": "url_navigation", "url": search_url, "observed": nav_res}
 
         # If native browser also fails, try BROWSER_ENGINE navigate as last resort
         try:
             eng_res = await BROWSER_ENGINE.navigate(search_url, browser_name=bname)
-            return {"success": True, "action": "search", "query": query, "tier": "playwright_navigate", "url": search_url, "observed": eng_res}
+            if eng_res.get("success"):
+                return {"success": True, "action": "search", "query": q_str, "tier": "playwright_navigate", "url": search_url, "observed": eng_res}
+            return {"success": False, "action": "search", "query": q_str, "error": eng_res.get("error", "Playwright navigation search failed")}
         except Exception as e:
-            _logger.error("[SEARCH] All tiers failed for query '%s': %s", query, e)
-            return {"success": False, "action": "search", "query": query, "error": f"All search tiers failed: {e}"}
+            logger.error("[SEARCH] All tiers failed for query '%s': %s", q_str, e)
+            return {"success": False, "action": "search", "query": q_str, "error": f"All search tiers failed: {e}"}
 
     def switch_tab(self, target_tab: str, browser_name: str = "Brave", browser: str | None = None, context: ExecutionContext | None = None) -> dict[str, Any]:
         """Switch to tab matching title keyword across open browsers."""
-        bname = browser or browser_name or "Brave"
         KERNEL.assert_authorized(context.task_id if context else None)
-        res = NATIVE_BROWSER.switch_tab(target_tab, browser_name=bname)
+        t_tab = str(target_tab or "").strip()
+        if not t_tab:
+            return {"success": False, "error": "INVALID_INPUT: Target tab name must be a non-empty string."}
+        bname = str(browser or browser_name or "Brave").strip() or "Brave"
+        res = NATIVE_BROWSER.switch_tab(t_tab, browser_name=bname)
         if not (res and res.get("success")):
             for fallback_b in ("Chrome", "Edge", "Brave"):
                 if fallback_b != bname:
-                    res = NATIVE_BROWSER.switch_tab(target_tab, browser_name=fallback_b)
+                    res = NATIVE_BROWSER.switch_tab(t_tab, browser_name=fallback_b)
                     if res and res.get("success"):
                         bname = fallback_b
                         break
         if res and res.get("success") and context:
             context.tab_identity = NATIVE_BROWSER.get_tab_identity(bname)
-        return res or {"success": False, "error": f"Tab '{target_tab}' not found in open browsers."}
+        return res or {"success": False, "error": f"Tab '{t_tab}' not found in open browsers."}
 
     def close_tab(self, target_tab: str, browser_name: str = "Brave", browser: str | None = None, context: ExecutionContext | None = None) -> dict[str, Any]:
         """Close browser tab via UIA with postcondition verification."""
-        bname = browser or browser_name or "Brave"
         KERNEL.assert_authorized(context.task_id if context else None)
-        res = NATIVE_BROWSER.close_tab(target_tab, browser_name=bname)
-        return res or {"success": False, "error": f"Tab '{target_tab}' not found in open browsers."}
+        t_tab = str(target_tab or "").strip()
+        if not t_tab:
+            return {"success": False, "error": "INVALID_INPUT: Target tab name must be a non-empty string."}
+        bname = str(browser or browser_name or "Brave").strip() or "Brave"
+        res = NATIVE_BROWSER.close_tab(t_tab, browser_name=bname)
+        return res or {"success": False, "error": f"Tab '{t_tab}' not found in open browsers."}
 
     async def get_state(self, context: ExecutionContext | None = None) -> dict[str, Any]:
         """Inspect current canonical browser state from visible tab."""
         KERNEL.assert_authorized(context.task_id if context else None)
-        bname = context.active_browser if context else "Brave"
+        bname = (context.active_browser if context and context.active_browser else "Brave")
         active_tab = NATIVE_BROWSER.get_active_tab(bname)
         if active_tab:
             return {
@@ -237,9 +250,19 @@ class BrowserDomainHandler:
         return await BROWSER_ENGINE.reload()
 
     async def wait_for_page(self, state: str = "load", timeout_seconds: float = 10.0, context: ExecutionContext | None = None) -> dict[str, Any]:
-        """Wait for page load lifecycle state."""
+        """Wait for page load lifecycle state with bounded finite timeout."""
         KERNEL.assert_authorized(context.task_id if context else None)
-        return await BROWSER_ENGINE.wait_for_page(state=state, timeout_seconds=timeout_seconds)
+        valid_states = ("load", "domcontentloaded", "networkidle")
+        st = str(state or "load").strip().lower()
+        if st not in valid_states:
+            return {"success": False, "error": f"INVALID_INPUT: Page state '{state}' not in {valid_states}."}
+        try:
+            to_val = float(timeout_seconds)
+            if to_val <= 0 or to_val > 60:
+                to_val = 10.0
+        except (TypeError, ValueError):
+            to_val = 10.0
+        return await BROWSER_ENGINE.wait_for_page(state=st, timeout_seconds=to_val)
 
 
 BROWSER_DOMAIN = BrowserDomainHandler()

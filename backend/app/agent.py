@@ -80,6 +80,7 @@ class AgentEngine:
         self.executor = ToolExecutor(self.registry)
         from .core.runtime import PlutonRuntime
         self.runtime = PlutonRuntime(provider=self.provider, registry=self.registry)
+        self.max_steps = get_settings().max_agent_steps
         from app.planning.semantic import SEMANTIC_PLANNER
         if self.provider:
             SEMANTIC_PLANNER.set_provider(self.provider)

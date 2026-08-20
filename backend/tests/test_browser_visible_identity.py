@@ -127,3 +127,82 @@ def test_unbound_browser_returns_clean_error(monkeypatch):
 
     assert res["success"] is False
     assert "BROWSER_TARGET_UNBOUND" in res["error"]
+
+
+def test_navigate_rejects_empty_or_none_url():
+    """Verify that navigate() rejects empty or whitespace URLs deterministically."""
+    from app.kernel.control_kernel import KERNEL
+    KERNEL.authorize_task("pytest-browser-test")
+    ctx = ExecutionContext(task_id="pytest-browser-test", active_browser="Brave")
+
+    res1 = BROWSER_DOMAIN.navigate(url="", context=ctx)
+    assert res1["success"] is False
+    assert "INVALID_INPUT" in res1["error"]
+
+    res2 = BROWSER_DOMAIN.navigate(url=None, context=ctx)
+    assert res2["success"] is False
+    assert "INVALID_INPUT" in res2["error"]
+
+    res3 = BROWSER_DOMAIN.navigate(url="   ", context=ctx)
+    assert res3["success"] is False
+    assert "INVALID_INPUT" in res3["error"]
+
+
+def test_switch_and_close_tab_reject_empty_names():
+    """Verify switch_tab and close_tab reject empty target names."""
+    from app.kernel.control_kernel import KERNEL
+    KERNEL.authorize_task("pytest-browser-test")
+    ctx = ExecutionContext(task_id="pytest-browser-test", active_browser="Brave")
+
+    res1 = BROWSER_DOMAIN.switch_tab(target_tab="", context=ctx)
+    assert res1["success"] is False
+    assert "INVALID_INPUT" in res1["error"]
+
+    res2 = BROWSER_DOMAIN.close_tab(target_tab="", context=ctx)
+    assert res2["success"] is False
+    assert "INVALID_INPUT" in res2["error"]
+
+
+def test_search_and_wait_validation():
+    """Verify search and wait_for_page input validation."""
+    from app.kernel.control_kernel import KERNEL
+    KERNEL.authorize_task("pytest-browser-test")
+    ctx = ExecutionContext(task_id="pytest-browser-test", active_browser="Brave")
+
+    res1 = asyncio.run(BROWSER_DOMAIN.search(query="", context=ctx))
+    assert res1["success"] is False
+    assert "INVALID_INPUT" in res1["error"]
+
+    res2 = asyncio.run(BROWSER_DOMAIN.wait_for_page(state="invalid_state", context=ctx))
+    assert res2["success"] is False
+    assert "INVALID_INPUT" in res2["error"]
+
+
+def test_search_falls_back_to_url_navigation(monkeypatch):
+    """Verify that when CDP is inactive, search navigates via native URL."""
+    from app.kernel.control_kernel import KERNEL
+    from app.subsystems.computer.browser_engine import BROWSER_ENGINE
+    from app.tools.native_browser_controller import NATIVE_BROWSER
+
+    KERNEL.authorize_task("pytest-browser-test")
+    monkeypatch.setattr(BROWSER_ENGINE, "_page", None)
+    monkeypatch.setattr(
+        NATIVE_BROWSER,
+        "open_tab",
+        lambda url, browser_name="Brave": {
+            "success": True,
+            "method": "existing_browser_tab_create",
+            "hwnd": 12345,
+            "pid": 6789,
+            "url": url,
+            "tab_count": 2,
+            "verified": True,
+        },
+    )
+
+    ctx = ExecutionContext(task_id="pytest-browser-test", active_browser="Brave")
+    res = asyncio.run(BROWSER_DOMAIN.search(query="Minecraft", context=ctx))
+    assert res["success"] is True
+    assert res["tier"] == "url_navigation"
+    assert "Minecraft" in res["url"]
+

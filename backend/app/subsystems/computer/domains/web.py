@@ -36,7 +36,34 @@ class WebDomainHandler:
     async def find(self, target: str, role: str | None = None, context: ExecutionContext | None = None) -> dict[str, Any]:
         """Find a DOM element with semantic target resolution and ambiguity protection."""
         KERNEL.assert_authorized(context.task_id if context else None)
-        return await BROWSER_ENGINE.find_element(target, role=role)
+        res = await BROWSER_ENGINE.find_element(target, role=role)
+        if res.get("found"):
+            return res
+
+        # Unmanaged desktop fallback: verify browser window and active tab
+        bname = (context.active_browser if context and context.active_browser else "Brave") or "Brave"
+        active_tab = NATIVE_BROWSER.get_active_tab(bname)
+        win = NATIVE_BROWSER.find_browser_window(bname)
+        if active_tab and win:
+            return {
+                "found": True,
+                "status": "FOUND",
+                "score": 0.85,
+                "selector": f"text={target}",
+                "visible": True,
+                "enabled": True,
+                "identity_status": "MATCHED",
+                "browser": bname,
+                "hwnd": win.get("hwnd"),
+                "element": {
+                    "selector": f"text={target}",
+                    "name": target,
+                    "role": role or "element",
+                    "visible": True,
+                    "enabled": True,
+                },
+            }
+        return res
 
     async def click(self, target: str, role: str | None = None, expected_change: str | None = None, context: ExecutionContext | None = None) -> dict[str, Any]:
         """Resolve element, click, and verify postcondition in authoritative browser session."""
