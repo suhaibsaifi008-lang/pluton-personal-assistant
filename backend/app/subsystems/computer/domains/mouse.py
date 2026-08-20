@@ -65,8 +65,8 @@ class MouseDomainHandler:
                 "error": f"Coordinate mouse click rejected: Target ({x}, {y}) is out of physical screen bounds.",
             }
 
-        from ..adapters.desktop_adapter import DESKTOP_ADAPTER
-        res = DESKTOP_ADAPTER.click_coords(x=x, y=y, button=button, clicks=clicks)
+        from ..adapters.pywinauto_adapter import PYWINAUTO_ADAPTER
+        res = PYWINAUTO_ADAPTER.click_coords(x=x, y=y, button=button, clicks=clicks)
         return {
             "success": res.get("success", True),
             "x": x,

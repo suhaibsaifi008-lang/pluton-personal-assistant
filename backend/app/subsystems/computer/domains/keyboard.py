@@ -30,13 +30,13 @@ class KeyboardDomainHandler:
     ) -> dict[str, Any]:
         """Type text into window using verified TARGET -> FOCUS -> INPUT pipeline."""
         KERNEL.assert_authorized(context.task_id if context else None)
-        from ..adapters.desktop_adapter import DESKTOP_ADAPTER
+        from ..adapters.pywinauto_adapter import PYWINAUTO_ADAPTER
 
-        target_app = target_window or (target if target and any(k in target.lower() for k in ("notepad", "calc", "explorer", "cmd", "wordpad")) else None)
+        target_app = target_window or (target if target and any(k in target.lower() for k in ("notepad", "calc", "explorer", "cmd", "wordpad", "word", "paint")) else None)
         target_hwnd = hwnd
 
         if target_app:
-            matched = DESKTOP_ADAPTER.find_windows_by_app(target_app)
+            matched = PYWINAUTO_ADAPTER.find_windows_by_app(target_app)
             if matched:
                 target_hwnd = matched[0]["hwnd"]
                 target_pid = matched[0].get("pid", 0)
@@ -50,27 +50,28 @@ class KeyboardDomainHandler:
             target_hwnd = context.bound_hwnd or 0
 
         if target_hwnd:
-            DESKTOP_ADAPTER.focus_window(target_hwnd)
+            PYWINAUTO_ADAPTER.focus_window(target_hwnd)
 
-        return DESKTOP_ADAPTER.type_text(text=text, clear="false", press_enter=False)
+        return PYWINAUTO_ADAPTER.type_text(text=text)
 
     type = type_text
 
     def press(self, key: str, target_window: str | None = None, context: ExecutionContext | None = None, **kwargs: Any) -> dict[str, Any]:
         """Press a single key."""
         KERNEL.assert_authorized(context.task_id if context else None)
-        from ..adapters.desktop_adapter import DESKTOP_ADAPTER
+        from ..adapters.pywinauto_adapter import PYWINAUTO_ADAPTER
         if target_window:
-            DESKTOP_ADAPTER.focus_window(target_window)
-        return DESKTOP_ADAPTER.press_key(key)
+            PYWINAUTO_ADAPTER.focus_window(target_window)
+        return PYWINAUTO_ADAPTER.press_key(key)
 
     def hotkey(self, keys: list[str] | str, target_window: str | None = None, context: ExecutionContext | None = None, **kwargs: Any) -> dict[str, Any]:
         """Execute key combination (e.g. ['ctrl', 'a'] or 'ctrl+c')."""
         KERNEL.assert_authorized(context.task_id if context else None)
-        from ..adapters.desktop_adapter import DESKTOP_ADAPTER
+        from ..adapters.pywinauto_adapter import PYWINAUTO_ADAPTER
         if target_window:
-            DESKTOP_ADAPTER.focus_window(target_window)
-        return DESKTOP_ADAPTER.send_shortcut(keys)
+            PYWINAUTO_ADAPTER.focus_window(target_window)
+        shortcut_str = "+".join(keys) if isinstance(keys, list) else str(keys)
+        return PYWINAUTO_ADAPTER.send_shortcut(shortcut_str)
 
     def copy(self, context: ExecutionContext | None = None) -> dict[str, Any]:
         """Execute Ctrl+C with clipboard settlement."""

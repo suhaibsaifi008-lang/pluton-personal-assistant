@@ -23,22 +23,22 @@ class WindowDomainHandler:
     def list_windows(self, visible_only: bool = True, context: ExecutionContext | None = None) -> list[dict[str, Any]]:
         """List open top-level desktop windows."""
         KERNEL.assert_authorized(context.task_id if context else None)
-        from ..adapters.desktop_adapter import DESKTOP_ADAPTER
-        return DESKTOP_ADAPTER.list_windows(visible_only=visible_only)
+        from ..adapters.pywinauto_adapter import PYWINAUTO_ADAPTER
+        return PYWINAUTO_ADAPTER.list_windows(visible_only=visible_only)
 
     list = list_windows
 
     def find_window(self, target: str | int, context: ExecutionContext | None = None) -> dict[str, Any] | None:
         """Find a window by title, HWND, or PID."""
         KERNEL.assert_authorized(context.task_id if context else None)
-        from ..adapters.desktop_adapter import DESKTOP_ADAPTER
+        from ..adapters.pywinauto_adapter import PYWINAUTO_ADAPTER
         if isinstance(target, int):
-            wins = DESKTOP_ADAPTER.list_windows(visible_only=False)
+            wins = PYWINAUTO_ADAPTER.list_windows(visible_only=False)
             return next((w for w in wins if w.get("hwnd") == target or w.get("pid") == target), None)
-        matched = DESKTOP_ADAPTER.find_windows_by_app(str(target))
+        matched = PYWINAUTO_ADAPTER.find_windows_by_app(str(target))
         if matched:
             return matched[0]
-        wins = DESKTOP_ADAPTER.list_windows(visible_only=False)
+        wins = PYWINAUTO_ADAPTER.list_windows(visible_only=False)
         t_low = str(target).lower()
         return next((w for w in wins if t_low in str(w.get("title", "")).lower()), None)
 
@@ -47,8 +47,18 @@ class WindowDomainHandler:
     def get_foreground_window(self, context: ExecutionContext | None = None) -> dict[str, Any]:
         """Get canonical structured metadata about active foreground window."""
         KERNEL.assert_authorized(context.task_id if context else None)
-        from app.tools.uia_engine import UIA_ENGINE
-        return UIA_ENGINE.get_foreground_window()
+        user32 = ctypes.windll.user32
+        hwnd = user32.GetForegroundWindow()
+        if not hwnd or not user32.IsWindow(hwnd):
+            return {"active": False, "hwnd": 0, "title": "", "class_name": "", "pid": 0}
+        t_len = user32.GetWindowTextLengthW(hwnd)
+        t_buf = ctypes.create_unicode_buffer(t_len + 1)
+        user32.GetWindowTextW(hwnd, t_buf, t_len + 1)
+        c_buf = ctypes.create_unicode_buffer(256)
+        user32.GetClassNameW(hwnd, c_buf, 256)
+        pid = wintypes.DWORD()
+        user32.GetWindowThreadProcessId(hwnd, ctypes.byref(pid))
+        return {"active": True, "hwnd": hwnd, "title": t_buf.value.strip(), "class_name": c_buf.value.strip(), "pid": pid.value}
 
     def get_state(self, target: str | int | None = None, context: ExecutionContext | None = None) -> dict[str, Any]:
         """Get structured state of a window or the active foreground window."""
@@ -98,8 +108,8 @@ class WindowDomainHandler:
     def focus(self, target: str | int, context: ExecutionContext | None = None) -> dict[str, Any]:
         """Bring window to foreground by HWND or title."""
         KERNEL.assert_authorized(context.task_id if context else None)
-        from ..adapters.desktop_adapter import DESKTOP_ADAPTER
-        res = DESKTOP_ADAPTER.focus_window(target)
+        from ..adapters.pywinauto_adapter import PYWINAUTO_ADAPTER
+        res = PYWINAUTO_ADAPTER.focus_window(target)
         if res.get("success") and context and res.get("hwnd"):
             context.bound_hwnd = res["hwnd"]
         return res
@@ -147,46 +157,52 @@ class WindowDomainHandler:
     def minimize(self, target: str | int, context: ExecutionContext | None = None) -> dict[str, Any]:
         """Minimize window."""
         KERNEL.assert_authorized(context.task_id if context else None)
-        from ..adapters.desktop_adapter import DESKTOP_ADAPTER
         hwnd = target if isinstance(target, int) else None
         if not hwnd:
             win = self.find_window(str(target), context=context)
             if win:
                 hwnd = win.get("hwnd")
-        return DESKTOP_ADAPTER.minimize_window(hwnd) if hwnd else {"success": False, "error": f"Window '{target}' not found."}
+        if not hwnd:
+            return {"success": False, "error": f"Window '{target}' not found."}
+        ctypes.windll.user32.ShowWindow(hwnd, 6)  # SW_MINIMIZE
+        return {"success": True, "hwnd": hwnd, "method": "win32_minimize"}
 
     def maximize(self, target: str | int, context: ExecutionContext | None = None) -> dict[str, Any]:
         """Maximize window."""
         KERNEL.assert_authorized(context.task_id if context else None)
-        from ..adapters.desktop_adapter import DESKTOP_ADAPTER
         hwnd = target if isinstance(target, int) else None
         if not hwnd:
             win = self.find_window(str(target), context=context)
             if win:
                 hwnd = win.get("hwnd")
-        return DESKTOP_ADAPTER.maximize_window(hwnd) if hwnd else {"success": False, "error": f"Window '{target}' not found."}
+        if not hwnd:
+            return {"success": False, "error": f"Window '{target}' not found."}
+        ctypes.windll.user32.ShowWindow(hwnd, 3)  # SW_MAXIMIZE
+        return {"success": True, "hwnd": hwnd, "method": "win32_maximize"}
 
     def restore(self, target: str | int, context: ExecutionContext | None = None) -> dict[str, Any]:
         """Restore window to normal state."""
         KERNEL.assert_authorized(context.task_id if context else None)
-        from ..adapters.desktop_adapter import DESKTOP_ADAPTER
         hwnd = target if isinstance(target, int) else None
         if not hwnd:
             win = self.find_window(str(target), context=context)
             if win:
                 hwnd = win.get("hwnd")
-        return DESKTOP_ADAPTER.restore_window(hwnd) if hwnd else {"success": False, "error": f"Window '{target}' not found."}
+        if not hwnd:
+            return {"success": False, "error": f"Window '{target}' not found."}
+        ctypes.windll.user32.ShowWindow(hwnd, 9)  # SW_RESTORE
+        return {"success": True, "hwnd": hwnd, "method": "win32_restore"}
 
     def close(self, target: str | int, context: ExecutionContext | None = None) -> dict[str, Any]:
         """Close window gracefully via WM_CLOSE."""
         KERNEL.assert_authorized(context.task_id if context else None)
-        from ..adapters.desktop_adapter import DESKTOP_ADAPTER
+        from ..adapters.pywinauto_adapter import PYWINAUTO_ADAPTER
         hwnd = target if isinstance(target, int) else None
         if not hwnd:
             win = self.find_window(str(target), context=context)
             if win:
                 hwnd = win.get("hwnd")
-        return DESKTOP_ADAPTER.close_window(hwnd) if hwnd else {"success": False, "error": f"Window '{target}' not found."}
+        return PYWINAUTO_ADAPTER.close_window(hwnd) if hwnd else {"success": False, "error": f"Window '{target}' not found."}
 
 
     focus_window = focus

@@ -22,95 +22,83 @@ class UIDomainHandler:
     def inspect(self, hwnd: int = 0, depth: int = 4, window_query: str = "", max_depth: int = 4, context: ExecutionContext | None = None) -> list[dict[str, Any]]:
         """Inspect accessibility control tree for target window or window matching window_query."""
         KERNEL.assert_authorized(context.task_id if context else None)
-        from ..adapters.desktop_adapter import DESKTOP_ADAPTER
+        from ..adapters.pywinauto_adapter import PYWINAUTO_ADAPTER
         target_hwnd = hwnd or (context.bound_hwnd if context else 0)
         if not target_hwnd and window_query:
-            matched = DESKTOP_ADAPTER.find_windows_by_app(window_query)
+            matched = PYWINAUTO_ADAPTER.find_windows_by_app(window_query)
             if matched:
                 target_hwnd = matched[0].get("hwnd", 0)
         eff_depth = max_depth if max_depth != 4 else depth
-        res = DESKTOP_ADAPTER.inspect_ui_tree(hwnd=target_hwnd, max_depth=min(eff_depth, 3))
-        return res.get("elements", [])
+        return PYWINAUTO_ADAPTER.inspect_ui_tree(hwnd=target_hwnd, max_depth=min(eff_depth, 3))
 
     def find(self, query: str, hwnd: int = 0, window_query: str = "", control_type: str | None = None, context: ExecutionContext | None = None) -> list[dict[str, Any]]:
         """Find matching UI elements in target window or window matching window_query."""
         KERNEL.assert_authorized(context.task_id if context else None)
-        from ..adapters.desktop_adapter import DESKTOP_ADAPTER
+        from ..adapters.pywinauto_adapter import PYWINAUTO_ADAPTER
         target_hwnd = hwnd or (context.bound_hwnd if context else 0)
         if not target_hwnd and window_query:
-            matched = DESKTOP_ADAPTER.find_windows_by_app(window_query)
+            matched = PYWINAUTO_ADAPTER.find_windows_by_app(window_query)
             if matched:
                 target_hwnd = matched[0].get("hwnd", 0)
-        return DESKTOP_ADAPTER.find_elements(hwnd=target_hwnd, query=query, control_type=control_type, max_results=10)
+        elements = PYWINAUTO_ADAPTER.inspect_ui_tree(hwnd=target_hwnd, max_depth=3)
+        q_low = query.strip().lower()
+        return [
+            e for e in elements
+            if q_low in e.get("name", "").lower() or q_low in e.get("automation_id", "").lower() or (control_type and control_type.lower() in e.get("control_type", "").lower())
+        ]
 
     def invoke(self, target: str, hwnd: int = 0, window_query: str = "", target_element: str = "", context: ExecutionContext | None = None) -> dict[str, Any]:
-        """Invoke element default action (e.g. Button click) via windows-use pattern or coordinate fallback."""
+        """Invoke element default action (e.g. Button click) via pywinauto."""
         KERNEL.assert_authorized(context.task_id if context else None)
-        from ..adapters.desktop_adapter import DESKTOP_ADAPTER
+        from ..adapters.pywinauto_adapter import PYWINAUTO_ADAPTER
         target_name = target_element or target or ""
         target_hwnd = hwnd or (context.bound_hwnd if context else 0)
         if not target_hwnd and window_query:
-            matched = DESKTOP_ADAPTER.find_windows_by_app(window_query)
+            matched = PYWINAUTO_ADAPTER.find_windows_by_app(window_query)
             if matched:
                 target_hwnd = matched[0].get("hwnd", 0)
-        return DESKTOP_ADAPTER.invoke_element(target=target_name, hwnd=target_hwnd)
+        return PYWINAUTO_ADAPTER.invoke_control(hwnd=target_hwnd, query=target_name, action="click")
 
     def set_value(self, target: str = "", value: str = "", hwnd: int = 0, window_query: str = "", target_element: str = "", context: ExecutionContext | None = None) -> dict[str, Any]:
-        """Set edit/input value via UIA ValuePattern or keyboard typing."""
+        """Set edit/input value via pywinauto."""
         KERNEL.assert_authorized(context.task_id if context else None)
-        from ..adapters.desktop_adapter import DESKTOP_ADAPTER
+        from ..adapters.pywinauto_adapter import PYWINAUTO_ADAPTER
         target_name = target_element or target or ""
         target_hwnd = hwnd or (context.bound_hwnd if context else 0)
         if not target_hwnd and window_query:
-            matched = DESKTOP_ADAPTER.find_windows_by_app(window_query)
+            matched = PYWINAUTO_ADAPTER.find_windows_by_app(window_query)
             if matched:
                 target_hwnd = matched[0].get("hwnd", 0)
-        return DESKTOP_ADAPTER.set_element_value(target=target_name, value=value, hwnd=target_hwnd)
+        return PYWINAUTO_ADAPTER.invoke_control(hwnd=target_hwnd, query=target_name, action="set_value", value=value)
 
     def toggle(self, target: str, hwnd: int = 0, context: ExecutionContext | None = None) -> dict[str, Any]:
-        """Toggle checkbox or switch via UIA TogglePattern."""
+        """Toggle checkbox or switch via pywinauto."""
         KERNEL.assert_authorized(context.task_id if context else None)
-        target_hwnd = hwnd or (context.bound_hwnd if context else 0)
-        act_res = UIA_ENGINE.execute_ui_action(target_name=target, action="toggle", hwnd=target_hwnd)
-        if act_res.get("success"):
-            return act_res
         return self.invoke(target, hwnd=hwnd, context=context)
 
     def select(self, target: str, hwnd: int = 0, context: ExecutionContext | None = None) -> dict[str, Any]:
-        """Select item in list or dropdown via UIA SelectionItemPattern."""
+        """Select item in list or dropdown via pywinauto."""
         KERNEL.assert_authorized(context.task_id if context else None)
-        target_hwnd = hwnd or (context.bound_hwnd if context else 0)
-        act_res = UIA_ENGINE.execute_ui_action(target_name=target, action="select", value=target, hwnd=target_hwnd)
-        if act_res.get("success"):
-            return act_res
         return self.invoke(target, hwnd=hwnd, context=context)
 
     def expand(self, target: str, hwnd: int = 0, context: ExecutionContext | None = None) -> dict[str, Any]:
         """Expand tree or menu item."""
         KERNEL.assert_authorized(context.task_id if context else None)
-        target_hwnd = hwnd or (context.bound_hwnd if context else 0)
-        act_res = UIA_ENGINE.execute_ui_action(target_name=target, action="expand", hwnd=target_hwnd)
-        if act_res.get("success"):
-            return act_res
         return self.invoke(target, hwnd=hwnd, context=context)
 
     def collapse(self, target: str, hwnd: int = 0, context: ExecutionContext | None = None) -> dict[str, Any]:
         """Collapse tree or menu item."""
         KERNEL.assert_authorized(context.task_id if context else None)
-        target_hwnd = hwnd or (context.bound_hwnd if context else 0)
-        act_res = UIA_ENGINE.execute_ui_action(target_name=target, action="collapse", hwnd=target_hwnd)
-        if act_res.get("success"):
-            return act_res
         return self.invoke(target, hwnd=hwnd, context=context)
 
     def focus(self, target: str, hwnd: int = 0, context: ExecutionContext | None = None) -> dict[str, Any]:
         """Focus specific UI element."""
         KERNEL.assert_authorized(context.task_id if context else None)
+        from ..adapters.pywinauto_adapter import PYWINAUTO_ADAPTER
         target_hwnd = hwnd or (context.bound_hwnd if context else 0)
-        elems = UIA_ENGINE.find_elements_by_query(hwnd=target_hwnd, query=target, max_results=1)
-        if not elems:
-            return {"success": False, "error": f"UI element '{target}' not found."}
-        return {"success": True, "element": elems[0]}
+        if target_hwnd:
+            PYWINAUTO_ADAPTER.focus_window(target_hwnd)
+        return {"success": True, "target": target, "hwnd": target_hwnd}
 
     def find_element(self, query: str, hwnd: int = 0, control_type: str | None = None, context: ExecutionContext | None = None) -> dict[str, Any] | None:
         """Find single matching UI element."""

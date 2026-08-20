@@ -47,73 +47,15 @@ class UIAutomationEngine:
         self.is_windows = sys.platform == "win32"
 
     # --------------------------------------------------------------------------
-    # Window & Process Management
+    # Window & Process Management (Routed via canonical PYWINAUTO_ADAPTER)
     # --------------------------------------------------------------------------
 
     def list_windows(self, visible_only: bool = True) -> list[dict[str, Any]]:
         """List all top-level windows on the interactive desktop."""
         if not self.is_windows:
             return []
-
-        attach_interactive_desktop()
-        user32 = ctypes.windll.user32
-        windows: list[dict[str, Any]] = []
-
-        def enum_proc(hwnd: int, lParam: int) -> bool:
-            if visible_only and not user32.IsWindowVisible(hwnd):
-                return True
-
-            t_len = user32.GetWindowTextLengthW(hwnd)
-            if visible_only and t_len == 0:
-                return True
-
-            t_buf = ctypes.create_unicode_buffer(t_len + 1)
-            user32.GetWindowTextW(hwnd, t_buf, t_len + 1)
-            title = t_buf.value.strip()
-
-            c_buf = ctypes.create_unicode_buffer(256)
-            user32.GetClassNameW(hwnd, c_buf, 256)
-            class_name = c_buf.value.strip()
-
-            # Ignore shell tooltips, GDI+ helper windows, or invisible system windows
-            if visible_only and (
-                class_name in ("Progman", "WorkerW", "Shell_TrayWnd", "Shell_SecondaryTrayWnd", "Windows.UI.Core.CoreWindow", "GDI+ Hook", "MSCTFIME UI", "Default IME")
-                or title.startswith("GDI+ Window")
-            ):
-                return True
-
-            pid = wintypes.DWORD()
-            user32.GetWindowThreadProcessId(hwnd, ctypes.byref(pid))
-
-            rect = wintypes.RECT()
-            user32.GetWindowRect(hwnd, ctypes.byref(rect))
-            width = rect.right - rect.left
-            height = rect.bottom - rect.top
-
-            if visible_only and (width <= 0 or height <= 0):
-                return True
-
-            windows.append({
-                "hwnd": hwnd,
-                "title": title,
-                "class_name": class_name,
-                "pid": pid.value,
-                "rect": {"left": rect.left, "top": rect.top, "right": rect.right, "bottom": rect.bottom, "width": width, "height": height},
-                "is_active": hwnd == user32.GetForegroundWindow(),
-            })
-            return True
-
-        WNDENUMPROC = ctypes.WINFUNCTYPE(wintypes.BOOL, wintypes.HWND, wintypes.LPARAM)
-        cb = WNDENUMPROC(enum_proc)
-        try:
-            hdesk = user32.OpenInputDesktop(0, False, 0x01FF)
-            if hdesk:
-                user32.EnumDesktopWindows(hdesk, cb, 0)
-            else:
-                user32.EnumWindows(cb, 0)
-        except Exception:
-            user32.EnumWindows(cb, 0)
-        return windows
+        from app.subsystems.computer.adapters.pywinauto_adapter import PYWINAUTO_ADAPTER
+        return PYWINAUTO_ADAPTER.list_windows(visible_only=visible_only)
 
     def find_window(self, query: str) -> dict[str, Any] | None:
         """Find the best-matching window by title, process, application keyword, or shell class."""

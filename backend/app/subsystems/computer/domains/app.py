@@ -59,8 +59,8 @@ class AppDomainHandler:
     def list(self, context: ExecutionContext | None = None) -> list[dict[str, Any]]:
         """List running applications with visible windows."""
         KERNEL.assert_authorized(context.task_id if context else None)
-        from ..adapters.desktop_adapter import DESKTOP_ADAPTER
-        windows = DESKTOP_ADAPTER.list_windows(visible_only=True)
+        from ..adapters.pywinauto_adapter import PYWINAUTO_ADAPTER
+        windows = PYWINAUTO_ADAPTER.list_windows(visible_only=True)
         apps = []
         seen_titles = set()
         for w in windows:
@@ -80,8 +80,8 @@ class AppDomainHandler:
     def is_running(self, app_name: str, context: ExecutionContext | None = None) -> dict[str, Any]:
         """Check if an application is running (by process or window)."""
         KERNEL.assert_authorized(context.task_id if context else None)
-        from ..adapters.desktop_adapter import DESKTOP_ADAPTER
-        matched = DESKTOP_ADAPTER.find_windows_by_app(app_name)
+        from ..adapters.pywinauto_adapter import PYWINAUTO_ADAPTER
+        matched = PYWINAUTO_ADAPTER.find_windows_by_app(app_name)
         running = bool(matched)
         win = matched[0] if matched else None
         return {
@@ -103,10 +103,10 @@ class AppDomainHandler:
     ) -> dict[str, Any]:
         """Launch an application and bind its HWND/PID to context with state-transition verification."""
         KERNEL.assert_authorized(context.task_id if context else None)
-        from ..adapters.desktop_adapter import DESKTOP_ADAPTER
+        from ..adapters.pywinauto_adapter import PYWINAUTO_ADAPTER
 
         resolved_name = target or app_name or ""
-        res = DESKTOP_ADAPTER.launch_app(
+        res = PYWINAUTO_ADAPTER.launch_app(
             app_name=resolved_name,
             args=args or [],
             reuse_existing=reuse_existing,
@@ -122,11 +122,11 @@ class AppDomainHandler:
     def focus(self, hwnd: int | None = None, app_name: str | None = None, context: ExecutionContext | None = None) -> dict[str, Any]:
         """Focus an existing window by HWND or semantic name."""
         KERNEL.assert_authorized(context.task_id if context else None)
-        from ..adapters.desktop_adapter import DESKTOP_ADAPTER
+        from ..adapters.pywinauto_adapter import PYWINAUTO_ADAPTER
         target = hwnd or app_name
         if not target:
             return {"success": False, "error": "No window target specified"}
-        res = DESKTOP_ADAPTER.focus_window(target)
+        res = PYWINAUTO_ADAPTER.focus_window(target)
         if res.get("success") and context and res.get("hwnd"):
             context.bound_hwnd = res["hwnd"]
         return res
@@ -134,17 +134,17 @@ class AppDomainHandler:
     def close(self, hwnd: int | None = None, app_name: str | None = None, context: ExecutionContext | None = None) -> dict[str, Any]:
         """Close an application window gracefully."""
         KERNEL.assert_authorized(context.task_id if context else None)
-        from ..adapters.desktop_adapter import DESKTOP_ADAPTER
+        from ..adapters.pywinauto_adapter import PYWINAUTO_ADAPTER
         target_hwnd = hwnd
         if not target_hwnd and app_name:
-            matched = DESKTOP_ADAPTER.find_windows_by_app(app_name)
+            matched = PYWINAUTO_ADAPTER.find_windows_by_app(app_name)
             if matched:
                 target_hwnd = matched[0].get("hwnd")
 
         if not target_hwnd:
             return {"success": False, "error": f"Window for '{app_name or hwnd}' not found"}
 
-        res = DESKTOP_ADAPTER.close_window(target_hwnd)
+        res = PYWINAUTO_ADAPTER.close_window(target_hwnd)
         if res.get("success") and context and context.bound_hwnd == target_hwnd:
             context.workflow_context.invalidate_window()
             context.bound_hwnd = None

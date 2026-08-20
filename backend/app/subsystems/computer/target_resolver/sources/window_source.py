@@ -22,8 +22,8 @@ class WindowDiscoverySource(DiscoverySource):
             return candidates
 
         try:
-            from app.tools.uia_engine import UIA_ENGINE
-            windows = UIA_ENGINE.list_windows(visible_only=True)
+            from app.subsystems.computer.adapters.pywinauto_adapter import PYWINAUTO_ADAPTER
+            windows = PYWINAUTO_ADAPTER.list_windows(visible_only=True)
             for win in windows:
                 title = str(win.get("title") or "").strip()
                 hwnd = win.get("hwnd")
