@@ -93,8 +93,9 @@ class TestLiveWindowsApplications:
         # 2. Idempotent Re-entry: Launch with reuse_existing=True
         res2 = APP_DOMAIN.launch(app_name="calculator", reuse_existing=True, context=ctx)
         assert res2.get("success") is True
-        assert res2.get("transition") in ("EXISTING_INSTANCE_REUSED", "WINDOW_CREATED", "COMMAND_DISPATCHED")
+        assert res2.get("transition") in ("EXISTING_INSTANCE_REUSED", "WINDOW_CREATED")
         hwnd2 = res2.get("hwnd") or ctx.bound_hwnd
+        assert hwnd2 is not None and hwnd2 > 0
 
         # 3. Clean up Calculator
         if hwnd2:

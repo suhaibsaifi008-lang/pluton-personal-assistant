@@ -175,15 +175,19 @@ class DesktopExecutionAdapter:
                 try:
                     proc = subprocess.Popen([appid] + args, shell=False)
                     launched_pid = proc.pid
-                except Exception:
-                    pass
+                except Exception as ex:
+                    logger.debug("[DESKTOP_ADAPTER] Popen path failed: %s", ex)
+            elif app_clean.lower() in ("calculator", "calc") and hasattr(os, "startfile"):
+                try:
+                    os.startfile("calculator:")
+                except Exception as ex:
+                    logger.debug("[DESKTOP_ADAPTER] startfile calculator failed: %s", ex)
             else:
                 try:
-                    cmd = f'Start-Process "shell:AppsFolder\\{appid}"'
-                    if self.desktop:
-                        self.desktop.execute_command(cmd)
-                except Exception:
-                    pass
+                    proc = subprocess.Popen(["explorer.exe", f"shell:AppsFolder\\{appid}"], shell=False)
+                    launched_pid = proc.pid
+                except Exception as ex:
+                    logger.debug("[DESKTOP_ADAPTER] Popen AppsFolder failed: %s", ex)
 
         # Fallback to direct executable / protocol launch if not launched
         if not launched_pid:
@@ -192,62 +196,44 @@ class DesktopExecutionAdapter:
                 try:
                     proc = subprocess.Popen([exe_cand] + args, shell=False)
                     launched_pid = proc.pid
-                except Exception:
-                    pass
+                except Exception as ex:
+                    logger.debug("[DESKTOP_ADAPTER] Direct exe launch failed: %s", ex)
             elif app_clean.lower() in ("calculator", "calc"):
                 try:
                     if hasattr(os, "startfile"):
                         os.startfile("calculator:")
-                except Exception:
-                    pass
+                except Exception as ex:
+                    logger.debug("[DESKTOP_ADAPTER] protocol fallback failed: %s", ex)
             elif app_clean.lower() in ("explorer", "file explorer"):
                 try:
                     proc = subprocess.Popen(["explorer.exe"], shell=False)
                     launched_pid = proc.pid
-                except Exception:
-                    pass
+                except Exception as ex:
+                    logger.debug("[DESKTOP_ADAPTER] explorer launch failed: %s", ex)
             elif hasattr(os, "startfile"):
                 try:
                     os.startfile(app_clean)
-                except Exception:
-                    pass
+                except Exception as ex:
+                    logger.debug("[DESKTOP_ADAPTER] os.startfile fallback failed: %s", ex)
 
         # 3. Post-launch Verification & HWND Capture
         deadline = time.perf_counter() + timeout
         new_window = None
 
         while time.perf_counter() < deadline:
-            wins_after = self.list_windows(visible_only=True)
-            for w in wins_after:
+            matching_after = self.find_windows_by_app(app_clean)
+            for w in matching_after:
                 hwnd = w.get("hwnd", 0)
                 pid = w.get("pid", 0)
-                title = w.get("title", "")
-                c_name = w.get("class_name", "")
-                pname = _get_process_image_name(pid)
+                if hwnd not in hwnds_before or (launched_pid and pid == launched_pid):
+                    new_window = w
+                    break
+                elif not new_window:
+                    new_window = w
 
-                if c_name in shell_classes:
-                    continue
-
-                is_match = False
-                if launched_pid and pid == launched_pid:
-                    is_match = True
-                elif app_clean.lower() in pname.lower() or app_clean.lower() in title.lower():
-                    is_match = True
-                elif app_clean.lower() in ("explorer", "file explorer") and c_name in ("CabinetWClass", "ExploreWClass", "XamlExplorerHostIslandWindow"):
-                    is_match = True
-                elif app_clean.lower() in ("calculator", "calc") and ("calculator" in title.lower() or c_name == "ApplicationFrameWindow"):
-                    is_match = True
-
-                if is_match:
-                    if hwnd not in hwnds_before or (launched_pid and pid == launched_pid):
-                        new_window = w
-                        break
-                    elif not new_window:
-                        new_window = w
-
-            if new_window:
+            if new_window and (new_window.get("hwnd", 0) not in hwnds_before or time.perf_counter() > (deadline - timeout + 0.8)):
                 break
-            time.sleep(0.1)
+            time.sleep(0.15)
 
         if new_window:
             target_hwnd = new_window.get("hwnd", 0)
@@ -264,12 +250,12 @@ class DesktopExecutionAdapter:
             }
 
         return {
-            "success": True,
-            "transition": "COMMAND_DISPATCHED",
+            "success": False,
+            "transition": "LAUNCH_UNVERIFIED",
             "hwnd": 0,
             "pid": launched_pid,
             "title": app_clean,
-            "message": f"Dispatched launch command for '{app_clean}'.",
+            "error": f"LAUNCH_VERIFICATION_FAILED: Application '{app_clean}' was dispatched but no verified visible window appeared within {timeout:.1f}s.",
         }
 
     # -------------------------------------------------------------------------
@@ -339,13 +325,31 @@ class DesktopExecutionAdapter:
             if rect.get("width", 0) <= 0 or rect.get("height", 0) <= 0:
                 continue
 
-            if (
-                (app_clean in pname and pname)
-                or (app_clean in title and title)
-                or (app_clean in ("explorer", "file explorer") and c_name in ("CabinetWClass", "ExploreWClass", "XamlExplorerHostIslandWindow"))
-                or (app_clean in ("calculator", "calc") and ("calc" in title or "calculator" in title or "calc" in pname or ("calculator" in title and c_name == "ApplicationFrameWindow")))
-                or (app_clean in ("notepad",) and (pname == "notepad.exe" or "notepad" in title))
-            ):
+            is_match = False
+            if app_clean in pname and pname:
+                is_match = True
+            elif app_clean in title and title:
+                is_match = True
+            elif app_clean in ("explorer", "file explorer") and c_name in ("CabinetWClass", "ExploreWClass", "XamlExplorerHostIslandWindow"):
+                is_match = True
+            elif app_clean in ("calculator", "calc") and ("calc" in title or "calculator" in title or "calc" in pname or ("calculator" in title and c_name == "ApplicationFrameWindow")):
+                is_match = True
+            elif app_clean in ("notepad",) and (pname == "notepad.exe" or "notepad" in title):
+                is_match = True
+            elif app_clean in ("paint", "mspaint") and (pname in ("mspaint.exe", "paintapp.exe") or "paint" in title):
+                is_match = True
+            elif app_clean in ("settings", "windows settings") and (pname == "systemsettings.exe" or "settings" in title):
+                is_match = True
+            elif app_clean in ("word", "winword", "microsoft word") and (pname == "winword.exe" or "word" in title):
+                is_match = True
+            elif app_clean in ("excel", "microsoft excel") and (pname == "excel.exe" or "excel" in title):
+                is_match = True
+            elif app_clean in ("powershell",) and ("powershell" in pname or "powershell" in title):
+                is_match = True
+            elif app_clean in ("cmd", "command prompt") and (pname == "cmd.exe" or "cmd" in title):
+                is_match = True
+
+            if is_match:
                 matched.append(w)
         return matched
 
