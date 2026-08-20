@@ -28,68 +28,49 @@ class KeyboardDomainHandler:
         context: ExecutionContext | None = None,
         **kwargs: Any,
     ) -> dict[str, Any]:
-        """Type text into window using verified TARGET -> FOCUS -> INPUT -> VERIFY pipeline."""
+        """Type text into window using verified TARGET -> FOCUS -> INPUT pipeline."""
         KERNEL.assert_authorized(context.task_id if context else None)
-        from app.tools.uia_engine import UIA_ENGINE
+        from ..adapters.desktop_adapter import DESKTOP_ADAPTER
 
         target_app = target_window or (target if target and any(k in target.lower() for k in ("notepad", "calc", "explorer", "cmd", "wordpad")) else None)
         target_hwnd = hwnd
-        target_pid = pid
 
         if target_app:
-            found_win = UIA_ENGINE.find_window(target_app)
-            if found_win:
-                target_hwnd = found_win["hwnd"]
-                target_pid = found_win.get("pid", 0)
+            matched = DESKTOP_ADAPTER.find_windows_by_app(target_app)
+            if matched:
+                target_hwnd = matched[0]["hwnd"]
+                target_pid = matched[0].get("pid", 0)
                 if context:
                     context.bound_hwnd = target_hwnd
                     context.bound_pid = target_pid
                     context.workflow_context.active_hwnd = target_hwnd
                     context.workflow_context.active_pid = target_pid
 
-        if not target_hwnd:
-            target_hwnd = context.bound_hwnd if context else 0
-            target_pid = context.bound_pid if context else 0
+        if not target_hwnd and context:
+            target_hwnd = context.bound_hwnd or 0
 
-        return type_into_window(
-            hwnd=target_hwnd,
-            pid=target_pid,
-            text=text,
-            expected_text=expected_text or text,
-        )
+        if target_hwnd:
+            DESKTOP_ADAPTER.focus_window(target_hwnd)
+
+        return DESKTOP_ADAPTER.type_text(text=text, clear="false", press_enter=False)
 
     type = type_text
 
     def press(self, key: str, target_window: str | None = None, context: ExecutionContext | None = None, **kwargs: Any) -> dict[str, Any]:
         """Press a single key."""
         KERNEL.assert_authorized(context.task_id if context else None)
-        cleaned = key.strip().lower()
-        if not cleaned:
-            return {"success": False, "error": "Empty key name."}
-        if cleaned in ("power", "sleep", "wakeup"):
-            return {"success": False, "error": f"Disruptive key '{cleaned}' blocked."}
-
+        from ..adapters.desktop_adapter import DESKTOP_ADAPTER
         if target_window:
-            from app.tools.uia_engine import UIA_ENGINE
-            UIA_ENGINE.focus_window(target_window)
-
-        pyautogui.press(cleaned)
-        return {"success": True, "key": cleaned}
+            DESKTOP_ADAPTER.focus_window(target_window)
+        return DESKTOP_ADAPTER.press_key(key)
 
     def hotkey(self, keys: list[str] | str, target_window: str | None = None, context: ExecutionContext | None = None, **kwargs: Any) -> dict[str, Any]:
         """Execute key combination (e.g. ['ctrl', 'a'] or 'ctrl+c')."""
         KERNEL.assert_authorized(context.task_id if context else None)
-        key_list = keys.split("+") if isinstance(keys, str) else list(keys)
-        clean_keys = [k.strip().lower() for k in key_list if k.strip()]
-        if not clean_keys:
-            return {"success": False, "error": "Empty hotkey list."}
-
+        from ..adapters.desktop_adapter import DESKTOP_ADAPTER
         if target_window:
-            from app.tools.uia_engine import UIA_ENGINE
-            UIA_ENGINE.focus_window(target_window)
-
-        pyautogui.hotkey(*clean_keys)
-        return {"success": True, "keys": clean_keys}
+            DESKTOP_ADAPTER.focus_window(target_window)
+        return DESKTOP_ADAPTER.send_shortcut(keys)
 
     def copy(self, context: ExecutionContext | None = None) -> dict[str, Any]:
         """Execute Ctrl+C with clipboard settlement."""
