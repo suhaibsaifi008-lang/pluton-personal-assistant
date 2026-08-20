@@ -144,8 +144,12 @@ class NativeBrowserController:
 
         # If URL requested, type into address bar and press Enter with atomic replacement
         if url and url not in ("about:blank", ""):
-            if not url.startswith(("http://", "https://", "file://", "about:")):
-                url = f"https://{url}"
+            type_target = url
+            # Bug 4 Workaround: ONLY when the exact host/navigation target is www.google.com, append ONE trailing space
+            if type_target.strip().lower() in ("www.google.com", "https://www.google.com", "http://www.google.com"):
+                type_target = "www.google.com "
+            elif not type_target.startswith(("http://", "https://", "file://", "about:")):
+                type_target = f"https://{type_target}"
 
             # Type URL atomically and press Enter
             pyautogui.hotkey("ctrl", "l")
@@ -154,7 +158,7 @@ class NativeBrowserController:
             time.sleep(0.05)
             pyautogui.press("backspace")
             time.sleep(0.05)
-            pyautogui.typewrite(url, interval=0.005)
+            pyautogui.typewrite(type_target, interval=0.005)
             time.sleep(0.05)
             pyautogui.press("enter")
 
@@ -200,6 +204,71 @@ class NativeBrowserController:
             "matched_tab": matching_tab,
             "verified": True,
             "message": f"Opened new tab in existing {browser_name} (HWND: {hwnd}) and verified navigation to '{url}'.",
+        }
+
+    def navigate_current_tab(self, url: str, browser_name: str = "Brave") -> dict[str, Any]:
+        """Navigate the CURRENT active browser tab in-place without opening a duplicate tab."""
+        win = self.find_browser_window(browser_name)
+        if not win:
+            return {"success": False, "error": f"Browser '{browser_name}' is not running."}
+
+        hwnd = win["hwnd"]
+        pid = win["pid"]
+
+        # Focus browser window
+        UIA_ENGINE.focus_window(hwnd)
+        time.sleep(0.15)
+
+        type_target = url
+        # Bug 4 Workaround: ONLY when the exact host/navigation target is www.google.com, append ONE trailing space
+        if type_target.strip().lower() in ("www.google.com", "https://www.google.com", "http://www.google.com"):
+            type_target = "www.google.com "
+        elif not type_target.startswith(("http://", "https://", "file://", "about:")):
+            type_target = f"https://{type_target}"
+
+        # Type URL atomically into address bar and press Enter
+        pyautogui.hotkey("ctrl", "l")
+        time.sleep(0.08)
+        pyautogui.hotkey("ctrl", "a")
+        time.sleep(0.05)
+        pyautogui.press("backspace")
+        time.sleep(0.05)
+        pyautogui.typewrite(type_target, interval=0.005)
+        time.sleep(0.05)
+        pyautogui.press("enter")
+
+        # Bounded postcondition verification on the same tab
+        import urllib.parse
+        parsed = urllib.parse.urlparse(url) if url else None
+        domain = (parsed.netloc or parsed.path or "").lower().replace("www.", "")
+        dest_keyword = domain.split(".")[0] if "." in domain else domain
+
+        deadline = time.perf_counter() + 5.0
+        verified = False
+        current_tab = None
+
+        while time.perf_counter() < deadline:
+            time.sleep(0.3)
+            current_tab = self.get_active_tab(browser_name)
+            if current_tab:
+                title_lower = (current_tab.get("title") or "").lower()
+                url_lower = (current_tab.get("url") or "").lower()
+                if dest_keyword and (dest_keyword in title_lower or dest_keyword in url_lower):
+                    verified = True
+                    break
+                if "results" in title_lower or "search" in title_lower:
+                    verified = True
+                    break
+
+        return {
+            "success": True,
+            "method": "native_same_tab_navigate",
+            "hwnd": hwnd,
+            "pid": pid,
+            "url": url,
+            "active_tab": current_tab,
+            "verified": verified,
+            "message": f"Navigated current tab in {browser_name} (HWND: {hwnd}) to '{url}'.",
         }
 
     def switch_tab(self, target_query: str, browser_name: str = "Brave") -> dict[str, Any]:

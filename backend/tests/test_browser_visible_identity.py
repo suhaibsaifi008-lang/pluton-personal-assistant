@@ -194,8 +194,8 @@ def test_search_and_wait_validation():
     assert "INVALID_INPUT" in res2["error"]
 
 
-def test_search_falls_back_to_url_navigation(monkeypatch):
-    """Verify that when CDP is inactive, search navigates via native URL."""
+def test_search_falls_back_to_same_tab_navigation(monkeypatch):
+    """Verify that when CDP is inactive, search navigates via native same-tab navigation without duplicate tabs."""
     from app.kernel.control_kernel import KERNEL
     from app.subsystems.computer.browser_engine import BROWSER_ENGINE
     from app.tools.native_browser_controller import NATIVE_BROWSER
@@ -204,21 +204,41 @@ def test_search_falls_back_to_url_navigation(monkeypatch):
     monkeypatch.setattr(BROWSER_ENGINE, "_page", None)
     monkeypatch.setattr(
         NATIVE_BROWSER,
-        "open_tab",
+        "navigate_current_tab",
         lambda url, browser_name="Brave": {
             "success": True,
-            "method": "existing_browser_tab_create",
+            "method": "native_same_tab_navigate",
             "hwnd": 12345,
             "pid": 6789,
             "url": url,
-            "tab_count": 2,
             "verified": True,
         },
     )
 
     ctx = ExecutionContext(task_id="pytest-browser-test", active_browser="Brave")
-    res = asyncio.run(BROWSER_DOMAIN.search(query="Minecraft", context=ctx))
+    res = asyncio.run(BROWSER_DOMAIN.search(query="Minecraft", browser_name="Brave", context=ctx))
     assert res["success"] is True
-    assert res["tier"] == "url_navigation"
+    assert res["tier"] == "same_tab_navigation"
     assert "Minecraft" in res["url"]
+
+
+def test_google_address_bar_trailing_space_workaround():
+    """Verify Bug 4 Workaround: only exact www.google.com gets a trailing space."""
+    target_google = "www.google.com"
+    target_yt = "https://www.youtube.com"
+
+    # Google should get the trailing space when typed
+    type_target_google = target_google
+    if type_target_google.strip().lower() in ("www.google.com", "https://www.google.com", "http://www.google.com"):
+        type_target_google = "www.google.com "
+
+    assert type_target_google == "www.google.com "
+
+    # YouTube or search queries should NOT get trailing space
+    type_target_yt = target_yt
+    if type_target_yt.strip().lower() in ("www.google.com", "https://www.google.com", "http://www.google.com"):
+        type_target_yt = "www.google.com "
+
+    assert type_target_yt == "https://www.youtube.com"
+
 

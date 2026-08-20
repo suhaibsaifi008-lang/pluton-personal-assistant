@@ -138,17 +138,25 @@ class BrowserDomainHandler:
         except Exception as e:
             logger.info("[SEARCH] Tier 1 CDP exception: %s, falling through to Tier 2.", e)
 
-        # Tier 2: Construct search URL and navigate via native browser
+        # Tier 2: Construct search URL and navigate in-place on the SAME authoritative tab
         if is_youtube:
             clean_q = re.sub(r"\b(?:on\s+)?youtube\b", "", q_str, flags=re.IGNORECASE).strip() or q_str
             search_url = f"https://www.youtube.com/results?search_query={urllib.parse.quote_plus(clean_q)}"
         else:
             search_url = f"https://www.google.com/search?q={urllib.parse.quote_plus(q_str)}"
 
-        logger.info("[SEARCH] Tier 2: Navigating to search URL: %s", search_url)
-        nav_res = NATIVE_BROWSER.open_tab(url=search_url, browser_name=bname)
+        logger.info("[SEARCH] Tier 2: Navigating current tab to search URL: %s", search_url)
+        nav_res = NATIVE_BROWSER.navigate_current_tab(url=search_url, browser_name=bname)
         if nav_res.get("success"):
-            return {"success": True, "action": "search", "query": q_str, "tier": "url_navigation", "url": search_url, "observed": nav_res}
+            return {
+                "success": True,
+                "action": "search",
+                "query": q_str,
+                "tier": "same_tab_navigation",
+                "url": search_url,
+                "observed": nav_res,
+                "verified": nav_res.get("verified", True),
+            }
 
         # If native browser also fails, try BROWSER_ENGINE navigate as last resort
         try:
