@@ -47,8 +47,9 @@ class WindowDomainHandler:
     def get_foreground_window(self, context: ExecutionContext | None = None) -> dict[str, Any]:
         """Get canonical structured metadata about active foreground window."""
         KERNEL.assert_authorized(context.task_id if context else None)
+        from ..adapters.pywinauto_adapter import get_foreground_window_desktop
         user32 = ctypes.windll.user32
-        hwnd = user32.GetForegroundWindow()
+        hwnd = get_foreground_window_desktop()
         if not hwnd or not user32.IsWindow(hwnd):
             return {"active": False, "hwnd": 0, "title": "", "class_name": "", "pid": 0}
         t_len = user32.GetWindowTextLengthW(hwnd)
@@ -63,7 +64,7 @@ class WindowDomainHandler:
     def get_state(self, target: str | int | None = None, context: ExecutionContext | None = None) -> dict[str, Any]:
         """Get structured state of a window or the active foreground window."""
         KERNEL.assert_authorized(context.task_id if context else None)
-        attach_interactive_desktop()
+        from ..adapters.pywinauto_adapter import get_foreground_window_desktop
         user32 = ctypes.windll.user32
 
         hwnd = target if isinstance(target, int) else None
@@ -72,7 +73,7 @@ class WindowDomainHandler:
             if win:
                 hwnd = win.get("hwnd")
         if not hwnd:
-            hwnd = user32.GetForegroundWindow()
+            hwnd = get_foreground_window_desktop()
 
         if not hwnd or not user32.IsWindow(hwnd):
             return {"active": False, "hwnd": 0, "title": "", "state": "not_found"}
@@ -89,12 +90,16 @@ class WindowDomainHandler:
         is_zoomed = bool(user32.IsZoomed(hwnd))
         state_str = "minimized" if is_minimized else ("maximized" if is_zoomed else "normal")
 
+        fg = get_foreground_window_desktop()
+        root_fg = user32.GetAncestor(fg, 2) or fg
+        is_foreground = (fg == hwnd or root_fg == hwnd)
+
         return {
             "hwnd": hwnd,
             "title": title,
             "state": state_str,
             "visible": bool(user32.IsWindowVisible(hwnd)),
-            "foreground": user32.GetForegroundWindow() == hwnd,
+            "foreground": is_foreground,
             "rect": {
                 "left": rect.left,
                 "top": rect.top,

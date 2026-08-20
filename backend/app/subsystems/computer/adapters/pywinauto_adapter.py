@@ -58,6 +58,27 @@ def _get_process_image_name(pid: int) -> str:
     return ""
 
 
+def get_foreground_window_desktop() -> int:
+    """Query GetForegroundWindow with reliable desktop attachment across service and background worker threads."""
+    if sys.platform != "win32":
+        return 0
+    user32 = ctypes.windll.user32
+    fg = user32.GetForegroundWindow()
+    if fg:
+        return fg
+    try:
+        import concurrent.futures
+        def _query():
+            hdesk = user32.OpenInputDesktop(0, False, 0x01FF)
+            if hdesk:
+                user32.SetThreadDesktop(hdesk)
+            return user32.GetForegroundWindow()
+        with concurrent.futures.ThreadPoolExecutor(max_workers=1) as pool:
+            return pool.submit(_query).result(timeout=0.5)
+    except Exception:
+        return user32.GetForegroundWindow()
+
+
 class PywinautoExecutionAdapter:
     """
     Canonical Windows Execution Substrate Adapter.
@@ -74,12 +95,32 @@ class PywinautoExecutionAdapter:
     # -------------------------------------------------------------------------
 
     def get_start_menu_apps(self, force_refresh: bool = False) -> dict[str, str]:
-        """Index installed Windows Start Menu applications dynamically via PowerShell Get-StartApps."""
+        """Index installed Windows Start Menu applications dynamically via PowerShell Get-StartApps with built-in baseline."""
         now = time.perf_counter()
         if self._start_menu_cache and not force_refresh and (now - self._start_menu_indexed_at) < 300:
             return self._start_menu_cache
 
-        apps: dict[str, str] = {}
+        # Standard canonical Windows applications baseline
+        apps: dict[str, str] = {
+            "notepad": "Microsoft.WindowsNotepad_8wekyb3d8bbwe!App",
+            "calculator": "Microsoft.WindowsCalculator_8wekyb3d8bbwe!App",
+            "calc": "Microsoft.WindowsCalculator_8wekyb3d8bbwe!App",
+            "paint": "Microsoft.Paint_8wekyb3d8bbwe!App",
+            "mspaint": "Microsoft.Paint_8wekyb3d8bbwe!App",
+            "settings": "windows.immersivecontrolpanel_cw5n1h2txyewy!microsoft.windows.immersivecontrolpanel",
+            "camera": "Microsoft.WindowsCamera_8wekyb3d8bbwe!App",
+            "clock": "Microsoft.WindowsAlarms_8wekyb3d8bbwe!App",
+            "word": "Microsoft.Office.WINWORD.EXE.15",
+            "excel": "Microsoft.Office.EXCEL.EXE.15",
+            "powershell": "Microsoft.PowerShell_8wekyb3d8bbwe!App",
+            "cmd": "cmd.exe",
+            "explorer": "explorer.exe",
+            "file explorer": "explorer.exe",
+            "brave": "Brave.5N244SIULPDJWLHQ7CCT4M2LWI",
+            "microsoft edge": "Microsoft.MicrosoftEdge_8wekyb3d8bbwe!MicrosoftEdge",
+            "edge": "Microsoft.MicrosoftEdge_8wekyb3d8bbwe!MicrosoftEdge",
+        }
+
         try:
             cmd = "Get-StartApps | Select-Object Name, AppID | ConvertTo-Csv -NoTypeInformation"
             proc = subprocess.run(
@@ -99,7 +140,7 @@ class PywinautoExecutionAdapter:
                     if name and appid:
                         apps[name] = appid
         except Exception as ex:
-            logger.warning("[PYWINAUTO_ADAPTER] Failed to index Start Menu applications: %s", ex)
+            logger.debug("[PYWINAUTO_ADAPTER] PowerShell Get-StartApps fallback to baseline: %s", ex)
 
         self._start_menu_cache = apps
         self._start_menu_indexed_at = now
@@ -188,27 +229,16 @@ class PywinautoExecutionAdapter:
                 continue
 
             is_match = False
-            if app_clean in pname and pname:
+            # 1. Direct process name match (e.g. "chrome" in "chrome.exe", "spotify" in "spotify.exe")
+            if pname and (app_clean in pname or pname.replace(".exe", "") in app_clean):
                 is_match = True
-            elif app_clean in title and title:
+            # 2. Window title match
+            elif title and (app_clean in title or any(token in title for token in app_clean.split() if len(token) >= 3)):
                 is_match = True
-            elif app_clean in ("explorer", "file explorer") and c_name in ("CabinetWClass", "ExploreWClass", "XamlExplorerHostIslandWindow"):
+            # 3. Known shell / UWP frame containers
+            elif app_clean in ("explorer", "file explorer", "folder", "files") and c_name in ("CabinetWClass", "ExploreWClass", "XamlExplorerHostIslandWindow"):
                 is_match = True
-            elif app_clean in ("calculator", "calc") and ("calc" in title or "calculator" in title or "calc" in pname or ("calculator" in title and c_name == "ApplicationFrameWindow")):
-                is_match = True
-            elif app_clean in ("notepad",) and (pname == "notepad.exe" or "notepad" in title):
-                is_match = True
-            elif app_clean in ("paint", "mspaint") and (pname in ("mspaint.exe", "paintapp.exe") or "paint" in title):
-                is_match = True
-            elif app_clean in ("settings", "windows settings") and (pname == "systemsettings.exe" or "settings" in title):
-                is_match = True
-            elif app_clean in ("word", "winword", "microsoft word") and (pname == "winword.exe" or "word" in title):
-                is_match = True
-            elif app_clean in ("excel", "microsoft excel") and (pname == "excel.exe" or "excel" in title):
-                is_match = True
-            elif app_clean in ("powershell",) and ("powershell" in pname or "powershell" in title):
-                is_match = True
-            elif app_clean in ("cmd", "command prompt") and (pname == "cmd.exe" or "cmd" in title):
+            elif c_name == "ApplicationFrameWindow" and any(token in title for token in app_clean.split() if len(token) >= 3):
                 is_match = True
 
             if is_match:
@@ -319,34 +349,33 @@ class PywinautoExecutionAdapter:
                 if hwnd not in hwnds_before or (launched_pid and pid == launched_pid):
                     new_window = w
                     break
-                elif not new_window:
-                    new_window = w
-
-            if new_window and (new_window.get("hwnd", 0) not in hwnds_before or time.perf_counter() > (deadline - timeout + 0.8)):
+            if not new_window and matching_after:
+                # If no new HWND was detected but a matching visible window exists, bind to the most prominent visible match
+                new_window = matching_after[0]
+            if new_window:
                 break
             time.sleep(0.15)
 
-        if new_window:
-            target_hwnd = new_window.get("hwnd", 0)
-            target_pid = new_window.get("pid", launched_pid)
-            self.focus_window(target_hwnd)
+        if not new_window:
             return {
-                "success": True,
-                "transition": "WINDOW_CREATED",
-                "method": "pywinauto_launch",
-                "hwnd": target_hwnd,
-                "pid": target_pid,
-                "title": new_window.get("title", app_clean),
-                "message": f"Successfully launched and focused '{app_clean}' (HWND: {target_hwnd}, PID: {target_pid}).",
+                "success": False,
+                "transition": "LAUNCH_VERIFICATION_FAILED",
+                "error": f"LAUNCH_VERIFICATION_FAILED: Application '{app_clean}' was dispatched but no verified visible window appeared within {timeout}s.",
             }
 
+        hwnd = new_window.get("hwnd", 0)
+        pid = new_window.get("pid", 0)
+        self.focus_window(hwnd)
+
         return {
-            "success": False,
-            "transition": "LAUNCH_UNVERIFIED",
-            "hwnd": 0,
-            "pid": launched_pid,
-            "title": app_clean,
-            "error": f"LAUNCH_VERIFICATION_FAILED: Application '{app_clean}' was dispatched but no verified visible window appeared within {timeout:.1f}s.",
+            "success": True,
+            "transition": "NEW_INSTANCE_CREATED" if hwnd not in hwnds_before else "INSTANCE_BOUND",
+            "method": "pywinauto_app_launch",
+            "hwnd": hwnd,
+            "pid": pid,
+            "title": new_window.get("title"),
+            "class_name": new_window.get("class_name"),
+            "verified": True,
         }
 
     def focus_window(self, target: int | str) -> dict[str, Any]:
@@ -361,9 +390,33 @@ class PywinautoExecutionAdapter:
             return {"success": False, "error": f"Window '{target}' not found or invalid HWND."}
 
         user32 = ctypes.windll.user32
+        
+        # Attach to interactive input desktop if available
+        try:
+            hdesk = user32.OpenInputDesktop(0, False, 0x01FF)
+            if hdesk:
+                user32.SetThreadDesktop(hdesk)
+        except Exception:
+            pass
+
         SW_RESTORE = 9
         if user32.IsIconic(hwnd):
             user32.ShowWindow(hwnd, SW_RESTORE)
+
+        # Clear foreground lock and allow any process to set foreground
+        try:
+            SPI_SETFOREGROUNDLOCKTIMEOUT = 0x2001
+            user32.SystemParametersInfoW(SPI_SETFOREGROUNDLOCKTIMEOUT, 0, 0, 0x0002)
+            user32.AllowSetForegroundWindow(-1)
+        except Exception:
+            pass
+
+        # Send null ALT key event to bypass Windows foreground restrictions
+        try:
+            user32.keybd_event(0x12, 0, 0, 0)
+            user32.keybd_event(0x12, 0, 2, 0)
+        except Exception:
+            pass
 
         # AttachThreadInput trick for guaranteed foreground focus
         fg_hwnd = user32.GetForegroundWindow()

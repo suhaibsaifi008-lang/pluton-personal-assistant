@@ -166,7 +166,7 @@ class TestSafetyCancellationAndFalseSuccessRejection:
 
         # Must report false, never manufactured success
         assert res.get("success") is False
-        assert res.get("transition") in ("LAUNCH_UNVERIFIED", "LAUNCH_FAILED")
+        assert res.get("transition") in ("LAUNCH_UNVERIFIED", "LAUNCH_FAILED", "LAUNCH_VERIFICATION_FAILED")
         assert res.get("hwnd") in (0, None)
 
     def test_cancellation_guard_stops_execution(self):

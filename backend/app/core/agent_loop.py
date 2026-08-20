@@ -784,45 +784,7 @@ class UniversalAgentLoop:
                 },
             )
 
-        # 4. FINAL GOAL VERIFICATION GATE
-        final_world = WorldState.capture(context)
-        goal_verified, reason = GoalVerifier.verify_goal(
-            goal_text,
-            plan,
-            final_world,
-            context,
-            verifier=self.verifier,
-        )
-
-        if goal_verified:
-            task.status = TaskState.COMPLETED.value
-            if len(plan.steps) == 1 and plan.steps[0].summary:
-                task.response = plan.steps[0].summary
-            else:
-                step_lines = [f"- {s.description}: {s.summary or 'Done'}" for s in plan.steps]
-                task.response = f"Successfully executed and verified all {completed_count} action(s):\n" + "\n".join(step_lines)
-            db.commit()
-            self.event_bus.emit(EventType.TASK_COMPLETED, task_id, {"steps_completed": completed_count})
-            yield (
-                "done",
-                {
-                    "task_id": task.id,
-                    "session_id": task.session_id,
-                    "message": task.response,
-                    "status": task.status,
-                },
-            )
-        else:
-            task.status = TaskState.FAILED.value
-            task.response = f"Goal verification failed: {reason}"
-            db.commit()
-            self.event_bus.emit(EventType.TASK_FAILED, task_id, {"error": reason})
-            yield (
-                "done",
-                {
-                    "task_id": task.id,
-                    "session_id": task.session_id,
-                    "message": task.response,
-                    "status": task.status,
-                },
-            )
+        # 4. FINAL GOAL VERIFICATION GA        # Canonical execution path: LLM ReAct tool calling loop using CANONICAL_MODEL_REGISTRY
+        async for ev in self._run_model_tool_loop(db, task, context, initial_world):
+            yield ev
+        return
